@@ -1,0 +1,13 @@
+langchain
+langchain-openai
+langchain-community
+langchain-core
+langgraph
+tavily-python
+chromadb
+sqlalchemy
+pandas
+streamlit
+python-dotenv
+pillow
+easyocr
