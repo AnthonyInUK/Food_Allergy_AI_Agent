@@ -1,8 +1,8 @@
-# 🥗 Food Allergy Expert Agent
+# Food Allergy Expert Agent
 
 A sophisticated, production-ready AI agent built with **LangGraph** and **Self-RAG** architecture. This application empowers users to instantly verify food ingredients and allergens through natural language conversation or packaging photo uploads. It combines local structured databases with real-time web search to ensure reliable and comprehensive safety guidance.
 
-## 🌟 Key Features
+## Key Features
 
 *   **Intelligent Query Routing**: Automatically determines the optimal search path—querying structured SQL databases for brand statistics or vector databases for specific ingredient analysis.
 *   **Multimodal Recognition (Vision)**: Seamlessly identifies products and extracts allergen data from uploaded food packaging or ingredient list photos using advanced vision reasoning.
@@ -15,7 +15,7 @@ A sophisticated, production-ready AI agent built with **LangGraph** and **Self-R
 *   **Real-time Process Transparency**: Displays the step-by-step reasoning chain (routing, retrieval, auditing) for a professional and trustworthy user experience.
 *   **Automated Localization**: Instantly translates technical ingredient data from multiple languages (e.g., German, French) into user-preferred language.
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 *   **Orchestration**: LangChain, LangGraph
 *   **Inference Engine**: GPT-4o (Reasoning & Vision)
@@ -24,7 +24,7 @@ A sophisticated, production-ready AI agent built with **LangGraph** and **Self-R
 *   **Connectivity**: Tavily Search API
 *   **Deployment**: Docker, Hugging Face Spaces
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Clone Repository
 ```bash
@@ -49,14 +49,14 @@ TAVILY_API_KEY=your_tavily_key
 streamlit run main.py
 ```
 
-## 🐳 Docker Deployment
+## Docker Deployment
 
 ```bash
 docker build -t food-agent .
 docker run -p 7860:7860 -e OPENAI_API_KEY="..." -e TAVILY_API_KEY="..." food-agent
 ```
 
-## 📂 Project Structure
+## Project Structure
 
 - `main.py`: Streamlit UI and interaction layer.
 - `graph_logic.py`: LangGraph workflow definition (Routing, RAG, Quality Control).
