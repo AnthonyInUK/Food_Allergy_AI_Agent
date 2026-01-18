@@ -16,23 +16,47 @@ except ImportError:
     try:
         from langchain_classic.memory import ConversationBufferMemory
     except ImportError:
-        # 如果还是不行，直接从具体路径导入
         from langchain_classic.memory.buffer import ConversationBufferMemory
 
 from langchain_community.chat_message_histories import StreamlitChatMessageHistory
 
 load_dotenv()
 
+# --- 1. 全局配置与行为准则 ---
+SQL_SYSTEM_PREFIX = """你是一个严谨的食品过敏专家。
+
+【跨语言搜索与补位逻辑 - 必须执行】
+1. 识别产品的中英文名：同一产品往往分为中文记录（常为空）和英文记录（常有成分表）。搜中文时必须自动生成对应英文名进行联合查询。
+2. 强制取齐逻辑：使用 `OR` 连接中英文名，并强制增加 `AND ingredients != ''` 过滤。示例：`WHERE (name LIKE '%精选老抽%' OR name LIKE '%Premium Dark Soy Sauce%') AND ingredients != ''`
+3. 质量优先排序：必须使用 `ORDER BY length(ingredients) DESC` 让内容最详实的记录排在最前面。
+
+【核心交互逻辑 - 结果过滤】
+1. 意图精准匹配（极重要）：
+   - 如果用户只问“过敏成分”或“过敏原”，你只需给出过敏原判定结论，**绝对严禁**列出冗长的配料表（ingredients）或展示图片。
+   - 只有当用户明确问“有什么成分”、“配料表是什么”时，才提供详细配料表。
+   - 只有当用户明确说“想看图”、“长什么样”时，才展示图片。
+2. 翻译呈现：无论提取到的是英文、德语还是法语成分，必须将其【翻译成中文】展示。
+3. 结论先行：直接告诉用户建议（能吃/不能吃/含有什么过敏原）。
+4. 记忆指代：必须查阅 'chat_history' 解析“它”、“这个”。严禁反问！
+
+【查询技术限制- 性能与质量优化】
+1. 动态数量：针对特定产品的提问使用 LIMIT 1；针对列表类或模糊查询使用 LIMIT 5。
+2. 列剪枝：仅查询满足当前意图的最小必要列。例如：若用户未要求看图，严禁查询 `image_url`；若用户只问过敏原，优先查 `allergens`，仅在前者为空时才查 `ingredients` 兜底。
+3. 索引优化：对于已知确切品牌（如“李锦记”），SQL 应优先使用 `brand = 'Lee Kum Kee'` 而非 `LIKE`，以利用数据库索引。
+4. 排除噪声：在查询条件中增加 `AND length(ingredients) > 5` 来过滤掉库中那些只有名字没有实际内容的垃圾记录。
+5. 语言约束：始终使用中文回答。
+"""
+
 
 @st.cache_resource
 def get_db():
-    """缓存数据库连接和表结构信息，大幅提升初始化速度"""
+    """缓存数据库连接和表结构信息"""
     return SQLDatabase.from_uri("sqlite:///data/food_data.db")
 
 
 @st.cache_resource
 def get_llm():
-    """缓存 LLM 实例"""
+    """缓存 GPT-4o 主模型"""
     return ChatOpenAI(
         model="gpt-4o",
         temperature=0,
@@ -40,91 +64,61 @@ def get_llm():
     )
 
 
+@st.cache_resource
 def get_sql_agent():
+    """缓存 Agent 实例，避免重复构建推理链"""
     db = get_db()
     llm = get_llm()
 
-    # 1. 终极版系统提示词：整合翻译、图片策略、上下文记忆与分类定义优化
-    system_prefix = """你是一个极其聪明的食品过敏专家。
-    【数据处理原则（重要）】
-    1. 质量优先：数据库中存在重复的产品记录。请优先选择【有图片链接 (image_url IS NOT NULL)】且【过敏原信息较全】的记录。
-    2. 排序技巧：在 SQL 中可以使用 `ORDER BY (image_url IS NOT NULL) DESC` 来让带图片的靠前。
-    3. 分类定义优化（重要）：
-       - 当用户提到“零食”时，请优先寻找 `categories` 中包含 'Snacks', 'Chips', 'Confectionery', 'Biscuits', 'Candy' 的产品。
-       - 除非用户明确提到，否则不要将“方便面 (Instant Noodles)”、“挂面 (Pasta/Noodles)”或“米饭 (Rice)”作为“零食”返回。
-    
-    【核心交互逻辑】
-    1. 语言翻译（硬性要求）：
-       - 数据库中的 ingredients (配料) 和 name 可能包含德语、法语等外语。
-       - 无论数据库原文是什么，你必须将其翻译成用户提问所使用的语言（通常是中文）进行回复。
-    
-    2. 图片显示策略（智能判断）：
-       - 默认情况下不要显示图片。
-       - 只有当用户明确表达想看图片（如问“长什么样”、“给张图”、“看照片”、“展示产品”）时，才使用 Markdown 语法 ![产品名](url) 直接显示图片。
-    
-    3. 上下文记忆：
-       - 你必须查阅 'chat_history'。如果用户提到“这个”、“它”，指的就是上文刚讨论过的产品。
-       - 严禁反问！如果历史里有产品名，就直接基于该产品进行过敏原查询。
-    
-    4. 回答风格：
-       - 结论先行：直接告诉用户建议。
-       - 简洁明了：翻译后的配料表只列出关键成分。
-    
-    【查询约束】
-    - 执行 SQL 必须带上 LIMIT 5。
-    - 品牌匹配：'李锦记' = 'Lee Kum Kee'。
-    - 隐藏技术细节：不要展示 Barcode、数据库 ID。
-    """
-    # 2. 创建 Agent，不再在这里传 memory，改为显式占位符
-    agent_executor = create_sql_agent(
+    # 注意：这里不再绑定 memory，历史记录在 invoke 时动态传入，以提升并发稳定性
+    return create_sql_agent(
         llm,
         db=db,
         agent_type="openai-tools",
         verbose=True,
-        prefix=system_prefix,
+        prefix=SQL_SYSTEM_PREFIX,
         extra_prompt_messages=[MessagesPlaceholder(
             variable_name="chat_history")],
+        max_iterations=5,
+        top_k=5
     )
-
-    return agent_executor
 
 
 def query_text(question: str, image_bytes: bytes = None):
+    """
+    核心查询接口：支持文本和图片。
+    """
     start_time = time.time()
 
-    # 3. 手动获取历史记录并传给 Agent
+    # 获取当前会话的聊天历史
     msgs = StreamlitChatMessageHistory(key="messages")
     chat_history = msgs.messages[-10:] if len(msgs.messages) > 0 else []
 
-    agent = get_sql_agent()
-
     if image_bytes:
-        # 处理图片输入流
+        # --- 视觉识别逻辑 ---
         base64_image = base64.b64encode(image_bytes).decode('utf-8')
-
-        # 构建多模态消息
         input_content = [
-            {"type": "text", "text": question},
+            {"type": "text", "text": "请识别这张图片中的食品名称、品牌以及过敏原信息。"},
             {
                 "type": "image_url",
                 "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"},
             },
         ]
 
-        # 对于图片识别，我们直接调用 LLM 的多模态能力，或者让 Agent 处理
-        # 这里为了保持 Agent 的 SQL 能力，我们将识别出的信息作为 context 传给它
         llm_vision = get_llm()
         vision_msg = HumanMessage(content=input_content)
         vision_response = llm_vision.invoke([vision_msg])
 
-        # 拿到视觉识别结果（例如产品名）后，再让 Agent 去查库
-        refined_question = f"基于图片识别结果：'{vision_response.content}'，请在数据库中查询该产品的详细过敏原信息。"
+        # 将视觉识别结果转化为 SQL Agent 可理解的问题
+        refined_question = f"基于视觉识别结果：'{vision_response.content}'，请在数据库中查询并分析该产品的详细过敏原风险。"
+        agent = get_sql_agent()
         response = agent.invoke({
             "input": refined_question,
             "chat_history": chat_history
         })
     else:
-        # 纯文本查询
+        # --- 纯文本逻辑 ---
+        agent = get_sql_agent()
         response = agent.invoke({
             "input": question,
             "chat_history": chat_history
@@ -134,10 +128,3 @@ def query_text(question: str, image_bytes: bytes = None):
     duration = end_time - start_time
 
     return response["output"], duration
-
-
-if __name__ == "__main__":
-    # 测试代码
-    # res = query_text("李锦记有哪些不含大豆的酱？")
-    # print(res)
-    pass
