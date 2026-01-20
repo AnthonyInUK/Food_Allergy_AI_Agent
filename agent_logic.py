@@ -35,16 +35,15 @@ SQL_SYSTEM_PREFIX = """你是一个严谨的食品过敏专家。
    - 如果用户只问“过敏成分”或“过敏原”，你只需给出过敏原判定结论，**绝对严禁**列出冗长的配料表（ingredients）或展示图片。
    - 只有当用户明确问“有什么成分”、“配料表是什么”时，才提供详细配料表。
    - 只有当用户明确说“想看图”、“长什么样”时，才展示图片。
-2. 翻译呈现：无论提取到的是英文、德语还是法语成分，必须将其【翻译成中文】展示。
-3. 结论先行：直接告诉用户建议（能吃/不能吃/含有什么过敏原）。
-4. 记忆指代：必须查阅 'chat_history' 解析“它”、“这个”。严禁反问！
+2. 结论先行：直接告诉用户建议（能吃/不能吃/含有什么过敏原）。
+3. 记忆指代：必须查阅 'chat_history' 解析“它”、“这个”。严禁反问！
 
 【查询技术限制- 性能与质量优化】
 1. 动态数量：针对特定产品的提问使用 LIMIT 1；针对列表类或模糊查询使用 LIMIT 5。
-2. 列剪枝：仅查询满足当前意图的最小必要列。例如：若用户未要求看图，严禁查询 `image_url`；若用户只问过敏原，优先查 `allergens`，仅在前者为空时才查 `ingredients` 兜底。
+2. 列剪枝：仅查询满足当前意图的最小必要列。
 3. 索引优化：对于已知确切品牌（如“李锦记”），SQL 应优先使用 `brand = 'Lee Kum Kee'` 而非 `LIKE`，以利用数据库索引。
 4. 排除噪声：在查询条件中增加 `AND length(ingredients) > 5` 来过滤掉库中那些只有名字没有实际内容的垃圾记录。
-5. 语言约束：始终使用中文回答。
+5. 语言要求：严格遵守系统指定的回复语言（由 [IMPORTANT] 指令给出）。
 """
 
 
@@ -94,11 +93,32 @@ def query_text(question: str, image_bytes: bytes = None):
     msgs = StreamlitChatMessageHistory(key="messages")
     chat_history = msgs.messages[-10:] if len(msgs.messages) > 0 else []
 
+    # 获取目标语言设置
+    target_lang = st.session_state.get("target_language", "自动识别 (Auto)")
+
+    # 强制语言指令
+    lang_instruction = ""
+    if target_lang == "English":
+        lang_instruction = "\n\n[IMPORTANT] Reply strictly in English."
+    elif target_lang == "Français":
+        lang_instruction = "\n\n[IMPORTANT] Répondez strictement en Français."
+    elif target_lang == "简体中文":
+        lang_instruction = "\n\n[重要] 请务必使用简体中文回答。"
+    else:
+        # Auto 模式：提醒模型观察输入语言
+        lang_instruction = "\n\n(Auto-detect language: Please reply in the same language as the user's question.)"
+
     if image_bytes:
         # --- 视觉识别逻辑 ---
         base64_image = base64.b64encode(image_bytes).decode('utf-8')
+
+        # 视觉识别指令：根据模式自适应
+        vision_text = "Please identify the product name, brand, and allergen info from this image."
+        if target_lang == "简体中文":
+            vision_text = "请识别这张图片中的食品名称、品牌以及过敏原信息。"
+
         input_content = [
-            {"type": "text", "text": "请识别这张图片中的食品名称、品牌以及过敏原信息。"},
+            {"type": "text", "text": vision_text + lang_instruction},
             {
                 "type": "image_url",
                 "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"},
@@ -109,18 +129,21 @@ def query_text(question: str, image_bytes: bytes = None):
         vision_msg = HumanMessage(content=input_content)
         vision_response = llm_vision.invoke([vision_msg])
 
-        # 将视觉识别结果转化为 SQL Agent 可理解的问题
-        refined_question = f"基于视觉识别结果：'{vision_response.content}'，请在数据库中查询并分析该产品的详细过敏原风险。"
+        # 构造发给 SQL Agent 的查询
+        refined_question = f"Product info from vision: {vision_response.content}. Please analyze allergen risks from database."
+        if target_lang == "简体中文":
+            refined_question = f"视觉识别结果：'{vision_response.content}'。请在数据库中查询其过敏原风险。"
+
         agent = get_sql_agent()
         response = agent.invoke({
-            "input": refined_question,
+            "input": refined_question + lang_instruction,
             "chat_history": chat_history
         })
     else:
         # --- 纯文本逻辑 ---
         agent = get_sql_agent()
         response = agent.invoke({
-            "input": question,
+            "input": question + lang_instruction,
             "chat_history": chat_history
         })
 
