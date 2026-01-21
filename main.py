@@ -1,9 +1,17 @@
-from graph_logic import query_with_graph, get_cache_stats, clear_all_caches
 import streamlit as st
 from dotenv import load_dotenv
-from langchain_community.chat_message_histories import StreamlitChatMessageHistory
 
 load_dotenv()
+
+try:
+    from langchain_community.chat_message_histories import StreamlitChatMessageHistory
+    from graph_logic import query_with_graph, get_cache_stats, clear_all_caches
+except ImportError as e:
+    st.error(f"❌ Import Error: {str(e)}")
+    st.stop()
+except Exception as e:
+    st.error(f"❌ Initialization Error: {str(e)}")
+    st.stop()
 
 st.set_page_config(page_title="Food Allergy AI Agent", layout="wide")
 
