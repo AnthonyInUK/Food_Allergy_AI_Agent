@@ -1,4 +1,0 @@
-# System packages for HuggingFace Spaces
-# This file is required by HuggingFace Spaces build system
-# All system dependencies are already installed in Dockerfile
-
