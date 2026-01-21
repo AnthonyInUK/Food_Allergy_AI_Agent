@@ -1,0 +1,6 @@
+# System packages required for HuggingFace Spaces
+# This file is automatically used by HuggingFace Spaces to install system dependencies
+
+libgl1
+libglib2.0-0
+
