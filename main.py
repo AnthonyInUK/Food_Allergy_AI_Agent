@@ -1,34 +1,7 @@
 from graph_logic import query_with_graph, get_cache_stats, clear_all_caches
 import streamlit as st
-import os
-import sys
 from dotenv import load_dotenv
 from langchain_community.chat_message_histories import StreamlitChatMessageHistory
-
-from datetime import datetime
-
-# Print startup info for debugging (before Streamlit initializes)
-print("===== Application Startup at", datetime.now().strftime(
-    "%Y-%m-%d %H:%M:%S"), "=====", file=sys.stderr, flush=True)
-print("Python version:", sys.version.split()[0], file=sys.stderr, flush=True)
-print("Working directory:", os.getcwd(), file=sys.stderr, flush=True)
-
-# Check database files
-db_path = "data/food_data.db"
-chroma_path = "data/chroma_db"
-if os.path.exists(db_path):
-    size_mb = os.path.getsize(db_path) / 1024 / 1024
-    print(
-        f"✓ Database file found: {db_path} ({size_mb:.2f} MB)", file=sys.stderr, flush=True)
-else:
-    print(
-        f"✗ WARNING: Database file not found: {db_path}", file=sys.stderr, flush=True)
-if os.path.exists(chroma_path):
-    print(f"✓ Vector database found: {chroma_path}",
-          file=sys.stderr, flush=True)
-else:
-    print(
-        f"✗ WARNING: Vector database not found: {chroma_path}", file=sys.stderr, flush=True)
 
 load_dotenv()
 
