@@ -41,3 +41,4 @@ echo "✅ Update complete!"
 echo "📍 Your Space: https://huggingface.co/spaces/AnthonyInBC/Anthony_space"
 echo "⏳ Build will start automatically in ~1 minute"
 
+

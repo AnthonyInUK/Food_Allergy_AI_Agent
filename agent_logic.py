@@ -108,18 +108,7 @@ WHERE brand = 'Lee Kum Kee'
 @st.cache_resource
 def get_db():
     """缓存数据库连接和表结构信息"""
-    import os
-    try:
-        db_path = "data/food_data.db"
-        # Ensure directory exists
-        os.makedirs(os.path.dirname(db_path), exist_ok=True)
-        # Check if database exists
-        if not os.path.exists(db_path):
-            print(f"Warning: Database file not found at {db_path}")
-        return SQLDatabase.from_uri(f"sqlite:///{db_path}")
-    except Exception as e:
-        print(f"Warning: Failed to initialize database: {e}")
-        return None
+    return SQLDatabase.from_uri("sqlite:///data/food_data.db")
 
 
 @st.cache_resource
