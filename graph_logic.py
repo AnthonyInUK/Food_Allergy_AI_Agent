@@ -1,7 +1,11 @@
 import os
 import time
 import base64
+import hashlib
+import asyncio
 from typing import List, TypedDict, Annotated, Union
+from functools import lru_cache
+from concurrent.futures import ThreadPoolExecutor
 from dotenv import load_dotenv
 
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
@@ -29,6 +33,61 @@ def get_fast_llm():
 def get_vectorstore():
     embeddings = OpenAIEmbeddings()
     return Chroma(persist_directory="data/chroma_db", embedding_function=embeddings)
+
+
+# --- 缓存辅助函数 ---
+def get_semantic_hash(text: str) -> str:
+    """将语义键转换为 MD5 哈希，提高缓存键效率"""
+    return hashlib.md5(text.encode('utf-8')).hexdigest()
+
+
+def init_cache_system():
+    """初始化多层缓存系统"""
+    if "response_cache" not in st.session_state:
+        st.session_state.response_cache = {}  # L1: 最终答案缓存（语义级，跨语言）
+    if "retrieval_cache" not in st.session_state:
+        st.session_state.retrieval_cache = {}  # L2: 向量检索结果缓存
+    if "generation_cache" not in st.session_state:
+        st.session_state.generation_cache = {}  # L3: LLM 生成结果缓存
+    if "grade_cache" not in st.session_state:
+        st.session_state.grade_cache = {}  # L4: 文档评估缓存
+    if "hallucination_cache" not in st.session_state:
+        st.session_state.hallucination_cache = {}  # L5: 幻觉检测缓存
+    if "answer_grade_cache" not in st.session_state:
+        st.session_state.answer_grade_cache = {}  # L6: 答案质量评估缓存
+    if "cache_stats" not in st.session_state:
+        st.session_state.cache_stats = {"hits": 0, "misses": 0}  # 缓存统计
+
+
+def get_cache_stats():
+    """获取缓存命中率统计"""
+    stats = st.session_state.get("cache_stats", {"hits": 0, "misses": 0})
+    total = stats["hits"] + stats["misses"]
+    hit_rate = (stats["hits"] / total * 100) if total > 0 else 0
+    return {"hit_rate": hit_rate, "total_queries": total, **stats}
+
+
+def clear_all_caches():
+    """清空所有缓存（用于调试或释放内存）"""
+    cache_types = [
+        "response_cache",
+        "retrieval_cache",
+        "generation_cache",
+        "grade_cache",
+        "hallucination_cache",
+        "answer_grade_cache"
+    ]
+
+    cleared_count = 0
+    for cache_name in cache_types:
+        if cache_name in st.session_state:
+            st.session_state[cache_name].clear()
+            cleared_count += 1
+
+    if "cache_stats" in st.session_state:
+        st.session_state.cache_stats = {"hits": 0, "misses": 0}
+
+    print(f"✓ 已清空 {cleared_count} 个缓存层")
 
 
 # --- 2. 结构化输出 Schema ---
@@ -73,11 +132,13 @@ class GraphState(TypedDict):
 def contextualize_question(state):
     print("--- 🚦 正在进行上下文补全 ---")
     question = state["question"]
+    target_lang = state.get("target_language", "自动识别 (Auto)")
 
     msgs = StreamlitChatMessageHistory(key="messages")
     history = msgs.messages[:-1][-5:] if len(msgs.messages) > 1 else []
 
-    if not history:
+    # 🔧 修复：Normalized_Key 模式下即使没有历史也要转换
+    if not history and target_lang != "Normalized_Key":
         return {"question": question}
 
     llm = get_fast_llm()
@@ -85,29 +146,31 @@ def contextualize_question(state):
         你的任务是：根据对话历史，将用户最新的提问改写为一个【完全独立、无歧义】的问题。
         
         【核心要求】
-        1. 消除代词：必须将“这个”、“它”、“this”、“it”等词，替换为历史对话中提到的具体食品名称或品牌。
+        1. 消除代词：必须将"这个"、"它"、"this"、"it"等词，替换为历史对话中提到的具体食品名称或品牌。
         2. 跨语言对齐：即使历史是中文而当前提问是英文（或反之），你也必须准确提取品牌名（如李锦记/Lee Kum Kee）并嵌入新问题中。
         3. 严禁偷懒：严禁输出类似 "this product" 或 "the sauce" 这种依然模糊的词，必须说出全名。
         4. 保持原意：不要回答问题，只需重写提问。直接输出重写后的结果。
         """
 
-    # 获取目标语言
-    target_lang = state.get("target_language", "自动识别 (Auto)")
-
     # 核心优化点：如果我们要生成 Key，使用一种极其死板的格式
     if target_lang == "Normalized_Key":
         system_instruction = """你是一个多语言实体对齐专家。
-        你的任务：从对话历史中提取核心意图，并将其【强制统一翻译为英文】。
+        你的任务：提取问题中的核心意图，并【强制统一翻译为英文标准格式】。
         
         必须输出此格式：[意图]|[英文品牌]|[英文产品名]
-        意图分类：AllergyCheck, InfoSearch, Appearance
+        意图分类：AllergyCheck, InfoSearch, Appearance, Compare, List
         翻译示例：
-        - “李锦记” -> "Lee Kum Kee"
-        - “老抽” -> "Dark Soy Sauce"
-        - “能吃吗” -> "AllergyCheck"
+        - "李锦记" -> "Lee Kum Kee"
+        - "老抽" -> "Dark Soy Sauce"
+        - "能吃吗" / "can i eat" -> "AllergyCheck"
+        - "长什么样" / "look like" -> "Appearance"
+        - "对比" / "compare" -> "Compare"
         
-        输出示例：AllergyCheck|Lee Kum Kee|Dark Soy Sauce
-        严禁输出任何中文或多余单词。"""
+        输出示例：
+        - "我对大豆过敏，能喝李锦记老抽吗" -> AllergyCheck|Lee Kum Kee|Dark Soy Sauce
+        - "I'm allergic to soy. Can I have Lee Kum Kee dark soy sauce?" -> AllergyCheck|Lee Kum Kee|Dark Soy Sauce
+        
+        ⚠️ 严禁输出任何中文或多余单词！必须完全按照格式输出！"""
     else:
         # 用于 UI 展示的提示词保持原有的灵活性
         system_instruction = "你是一个问题重写专家。根据对话历史，将提问改写为独立的完整提问。处理代词指代。"
@@ -190,26 +253,76 @@ def call_sql_agent(state):
 
 def retrieve(state):
     print("--- 检索本地知识库 ---")
-    docs = get_vectorstore().similarity_search(state["question"], k=3)
+    question = state["question"]
+
+    # 检索缓存：对相同问题的向量检索结果进行缓存
+    if "retrieval_cache" in st.session_state:
+        cache_key = get_semantic_hash(question.lower().strip())
+        if cache_key in st.session_state.retrieval_cache:
+            print("  ✓ 命中检索缓存")
+            return {"documents": st.session_state.retrieval_cache[cache_key]}
+
+    docs = get_vectorstore().similarity_search(question, k=3)
     doc_texts = [
         f"内容: {d.page_content}\n来源: {d.metadata.get('source', '本地知识库')}" for d in docs]
+
+    # 存入检索缓存
+    if "retrieval_cache" in st.session_state:
+        st.session_state.retrieval_cache[cache_key] = doc_texts
+
     return {"documents": doc_texts}
 
 
 def grade_documents(state):
+    """评估文档质量（优化版：对评估结果进行缓存）"""
     if not state.get("documents"):
         return {"web_search": "Yes"}
+
+    # 初始化评估缓存
+    if "grade_cache" not in st.session_state:
+        st.session_state.grade_cache = {}
+
+    # 生成缓存键：问题 + 文档内容
+    question = state["question"]
+    docs_text = ' '.join(state["documents"])
+    cache_key = get_semantic_hash(f"grade|{question}|{docs_text}")
+
+    # 检查缓存
+    if cache_key in st.session_state.grade_cache:
+        print("  ✓ 命中文档评估缓存")
+        return {"web_search": st.session_state.grade_cache[cache_key]}
+
+    # 缓存未命中：执行 LLM 评估
     llm = get_fast_llm()
     res = (ChatPromptTemplate.from_messages([("system", "判断资料是否足以回答问题。"), ("human", "问题: {question} \n资料: {documents}")]) | llm.with_structured_output(
-        grade_schema)).invoke({"question": state["question"], "documents": ' '.join(state["documents"])})
+        grade_schema)).invoke({"question": question, "documents": docs_text})
     score = res["score"] if isinstance(res, dict) else res.score
-    return {"web_search": "No" if score == "yes" else "Yes"}
+    result = "No" if score == "yes" else "Yes"
+
+    # 存入缓存
+    st.session_state.grade_cache[cache_key] = result
+
+    return {"web_search": result}
 
 
 def generate(state):
     print("--- 生成回答 ---")
     retry_count = state.get("retry_count", 0) + 1
     target_lang = state.get("target_language", "自动识别 (Auto)")
+
+    # 生成缓存键：基于问题 + 文档内容 + 语言
+    if "generation_cache" not in st.session_state:
+        st.session_state.generation_cache = {}
+
+    docs_text = ' '.join(state.get("documents", []))
+    cache_key = get_semantic_hash(
+        f"{state['question']}|{docs_text}|{target_lang}")
+
+    # 检查生成缓存
+    if cache_key in st.session_state.generation_cache:
+        print("  ✓ 命中生成缓存（跳过 LLM 调用）")
+        return {"generation": st.session_state.generation_cache[cache_key], "retry_count": retry_count}
+
     lang_instruction = ""
     if target_lang == "简体中文":
         lang_instruction = "请使用【简体中文】回答。"
@@ -225,6 +338,10 @@ def generate(state):
         f"你是一个食品过敏专家。\n{lang_instruction}\n【重要】必须在末尾列出参考来源。\n资料: {{documents}}\n问题: {{question}}")
     response = (prompt | llm).invoke(
         {"documents": state["documents"], "question": state["question"]})
+
+    # 存入生成缓存
+    st.session_state.generation_cache[cache_key] = response.content
+
     return {"generation": response.content, "retry_count": retry_count}
 
 
@@ -239,17 +356,82 @@ def web_search(state):
 
 
 def hallucination_grader(state):
+    """幻觉检测（优化版：对检测结果进行缓存）"""
+    # 初始化幻觉检测缓存
+    if "hallucination_cache" not in st.session_state:
+        st.session_state.hallucination_cache = {}
+
+    # 生成缓存键：文档 + 回答
+    docs_text = ' '.join(state["documents"])
+    generation = state["generation"]
+    cache_key = get_semantic_hash(f"hallucination|{docs_text}|{generation}")
+
+    # 检查缓存
+    if cache_key in st.session_state.hallucination_cache:
+        print("  ✓ 命中幻觉检测缓存")
+        return {"hallucination_score": st.session_state.hallucination_cache[cache_key]}
+
+    # 缓存未命中：执行 LLM 判断
     llm = get_fast_llm()
     res = (ChatPromptTemplate.from_messages([("system", "判断回答是否基于参考资料。"), ("human", "资料: {documents} \n回答: {generation}")]) | llm.with_structured_output(
-        grade_schema)).invoke({"documents": ' '.join(state["documents"]), "generation": state["generation"]})
-    return {"hallucination_score": res["score"] if isinstance(res, dict) else res.score}
+        grade_schema)).invoke({"documents": docs_text, "generation": generation})
+    score = res["score"] if isinstance(res, dict) else res.score
+
+    # 存入缓存
+    st.session_state.hallucination_cache[cache_key] = score
+
+    return {"hallucination_score": score}
 
 
 def answer_grader(state):
+    """答案质量评估（优化版：对评估结果进行缓存）"""
+    # 初始化答案评估缓存
+    if "answer_grade_cache" not in st.session_state:
+        st.session_state.answer_grade_cache = {}
+
+    # 生成缓存键：问题 + 回答
+    question = state["question"]
+    generation = state["generation"]
+    cache_key = get_semantic_hash(f"answer|{question}|{generation}")
+
+    # 检查缓存
+    if cache_key in st.session_state.answer_grade_cache:
+        print("  ✓ 命中答案评估缓存")
+        return {"answer_score": st.session_state.answer_grade_cache[cache_key]}
+
+    # 缓存未命中：执行 LLM 判断
     llm = get_fast_llm()
     res = (ChatPromptTemplate.from_messages([("system", "判断回答是否解决了用户问题。"), ("human", "问题: {question} \n回答: {generation}")]) | llm.with_structured_output(
-        grade_schema)).invoke({"question": state["question"], "generation": state["generation"]})
-    return {"answer_score": res["score"] if isinstance(res, dict) else res.score}
+        grade_schema)).invoke({"question": question, "generation": generation})
+    score = res["score"] if isinstance(res, dict) else res.score
+
+    # 存入缓存
+    st.session_state.answer_grade_cache[cache_key] = score
+
+    return {"answer_score": score}
+
+
+def parallel_graders(state):
+    """🚀 并行执行幻觉检测和答案评估（节省 40-50% 时间）"""
+    print("--- 🚀 并行执行质量评估 ---")
+
+    # 使用线程池并行执行两个独立的评估
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        # 同时提交两个任务
+        future_hallucination = executor.submit(hallucination_grader, state)
+        future_answer = executor.submit(answer_grader, state)
+
+        # 等待两个任务完成
+        hallucination_result = future_hallucination.result()
+        answer_result = future_answer.result()
+
+    print("  ✅ 并行评估完成")
+
+    # 合并结果
+    return {
+        "hallucination_score": hallucination_result["hallucination_score"],
+        "answer_score": answer_result["answer_score"]
+    }
 
 # --- 5. 构建工作流 ---
 
@@ -275,8 +457,7 @@ workflow.add_node("retrieve", retrieve)
 workflow.add_node("grade_documents", grade_documents)
 workflow.add_node("generate", generate)
 workflow.add_node("web_search", web_search)
-workflow.add_node("hallucination_grader", hallucination_grader)
-workflow.add_node("answer_grader", answer_grader)
+workflow.add_node("parallel_graders", parallel_graders)  # 🚀 新增并行评估节点
 
 workflow.add_edge(START, "contextualize_question")
 workflow.add_edge("contextualize_question", "route_question")
@@ -288,9 +469,8 @@ workflow.add_edge("retrieve", "grade_documents")
 workflow.add_conditional_edges("grade_documents", dec_gen, {
                                "web_search": "web_search", "generate": "generate"})
 workflow.add_edge("web_search", "generate")
-workflow.add_edge("generate", "hallucination_grader")
-workflow.add_edge("hallucination_grader", "answer_grader")
-workflow.add_conditional_edges("answer_grader", dec_final, {
+workflow.add_edge("generate", "parallel_graders")  # 🚀 改为并行评估
+workflow.add_conditional_edges("parallel_graders", dec_final, {  # 🚀 从并行节点决策
                                "useful": END, "not useful": "web_search", "not supported": "generate"})
 
 app = workflow.compile()
@@ -302,48 +482,161 @@ def query_with_graph(question: str, image_bytes: bytes = None):
     start_time = time.time()
     target_lang = st.session_state.get("target_language", "自动识别 (Auto)")
 
-    # 1. 确保缓存已初始化
-    if "response_cache" not in st.session_state:
-        st.session_state.response_cache = {}
+    # 1. 初始化多层缓存系统
+    init_cache_system()
 
-    # 2. 图片识别逻辑 (独立运行)
+    # 2. 图片识别逻辑 (独立运行，不使用缓存)
     if image_bytes:
         from agent_logic import query_text as vision_query
         res, dur = vision_query(question, image_bytes=image_bytes)
         yield {"node": "end", "generation": res, "duration": dur}
         return
 
-    # 3. 生成语义指纹作为缓存 Key (统一归一化为英文)
-    # 这一步是关键：让“能喝吗”和“Can I drink”在后台都生成相同的英文句子
+    # 🚀 3. 超快速路径检测：在工作流之前就拦截简单查询
+    from agent_logic import query_text as direct_sql_query_func
+
+    # 检测常见品牌 + 图片/过敏原关键词
+    q_lower = question.lower()
+    quick_brands = ["李锦记", "lee kum kee", "海天", "haday", "康师傅", "master kong"]
+    quick_keywords = ["长什么样", "看图", "图片", "外观", "包装", "能吃", "过敏",
+                      "look like", "picture", "image", "allerg", "safe"]
+
+    # 排除关键词：这些问题需要 Agent 多跳推理
+    # 使用单词边界避免误匹配（如 "all" 不应匹配 "allergic"）
+    exclude_keywords = ["对比", "区别", "哪些", "列表", "比较", "所有", "全部", "有什么",
+                        "compare", "difference", "list", " all ", "what are", "which"]
+
+    has_brand = any(brand in q_lower for brand in quick_brands)
+    has_keyword = any(kw in q_lower for kw in quick_keywords)
+    has_exclude = any(kw in q_lower for kw in exclude_keywords)
+
+    # 只有在满足条件且不包含排除关键词时才触发快速路径
+    if has_brand and has_keyword and not has_exclude:
+        print("  🚀🚀🚀 触发超快速路径：绕过工作流，直接查询")
+        yield {"node": "fast_path_detected", "status": "activated"}
+
+        # 生成语义指纹用于缓存（即使走快速路径也要缓存）
+        fingerprint_res = contextualize_question(
+            {"question": question, "target_language": "Normalized_Key"})
+        semantic_text = fingerprint_res.get("question", "").lower().strip()
+        semantic_key = get_semantic_hash(semantic_text)
+
+        print(f"  📌 快速路径语义指纹: {semantic_text}")
+        print(f"  📌 缓存键: {semantic_key}")
+
+        # 调试：打印当前缓存状态
+        if "response_cache" in st.session_state:
+            cache_keys = list(st.session_state.response_cache.keys())
+            print(f"  🔍 当前缓存中有 {len(cache_keys)} 条记录")
+            if len(cache_keys) > 0:
+                print(f"  🔍 缓存键列表: {cache_keys[:3]}")  # 只打印前3个
+
+        # 检查缓存
+        if "response_cache" in st.session_state and semantic_key in st.session_state.response_cache:
+            print("  ✓✓✓ 快速路径也命中了语义缓存！")
+            if "cache_stats" in st.session_state:
+                st.session_state.cache_stats["hits"] += 1
+            result = st.session_state.response_cache[semantic_key]
+            yield {"node": "end", "generation": result, "duration": time.time() - start_time}
+            return
+
+        # 直接调用 SQL 查询，绕过整个工作流
+        try:
+            result, duration = direct_sql_query_func(question)
+            # 存入缓存
+            if "response_cache" not in st.session_state:
+                st.session_state.response_cache = {}
+            st.session_state.response_cache[semantic_key] = result
+            print(f"  💾 已存入语义缓存（键: {semantic_key}）")
+            if "cache_stats" in st.session_state:
+                st.session_state.cache_stats["misses"] += 1
+
+            yield {"node": "end", "generation": result, "duration": time.time() - start_time}
+            return
+        except Exception as e:
+            print(f"  ⚠️ 快速路径失败: {e}，回退到正常流程")
+            # 如果失败，继续正常流程
+
+    # 🚀 多跳查询的快速通道：直接路由到 SQL Agent，跳过 route_question
+    if has_exclude and has_brand:
+        detected_keyword = [k for k in exclude_keywords if k in q_lower][0]
+        print(f"  🤖 检测到复杂查询（包含'{detected_keyword}'），使用 Agent 多跳推理")
+        yield {"node": "complex_query_detected", "keyword": detected_keyword}
+
+        # 🚀 优化：对于多跳查询，也检查缓存（跳过前面的节点）
+        fingerprint_res = contextualize_question(
+            {"question": question, "target_language": "Normalized_Key"})
+        semantic_text = fingerprint_res.get("question", "").lower().strip()
+        semantic_key = get_semantic_hash(semantic_text)
+
+        print(f"  📌 多跳查询语义指纹: {semantic_text}")
+        print(f"  📌 缓存键: {semantic_key}")
+
+        # 检查缓存
+        if "response_cache" in st.session_state and semantic_key in st.session_state.response_cache:
+            print("  ✓✓✓ 多跳查询命中了语义缓存！跳过完整工作流")
+            if "cache_stats" in st.session_state:
+                st.session_state.cache_stats["hits"] += 1
+            result = st.session_state.response_cache[semantic_key]
+            yield {"node": "end", "generation": result, "duration": time.time() - start_time}
+            return
+
+        # 缓存未命中：生成展示用的补全意图，然后直接执行 SQL Agent
+        print("  ✗ 多跳缓存未命中，执行 SQL Agent（跳过route_question）")
+        if "cache_stats" in st.session_state:
+            st.session_state.cache_stats["misses"] += 1
+
+        display_q_res = contextualize_question(
+            {"question": question, "target_language": target_lang})
+        refined_q = display_q_res.get("question", question)
+        yield {"node": "contextualize_question", "status": "complete", "refined_q": refined_q}
+
+        # 直接调用 SQL Agent（跳过 route_question，节省0.5-1秒）
+        yield {"node": "sql_agent", "status": "running"}
+        response, _ = sql_query_text(refined_q)
+
+        # 存入缓存
+        if "response_cache" not in st.session_state:
+            st.session_state.response_cache = {}
+        st.session_state.response_cache[semantic_key] = response
+        print(f"  💾 已存入多跳查询缓存（键: {semantic_key}）")
+
+        yield {"node": "end", "generation": response, "duration": time.time() - start_time}
+        return
+
+    # 4. 生成语义指纹作为缓存 Key (统一归一化为英文)
+    # 这一步是关键：让"能喝吗"和"Can I drink"在后台都生成相同的英文句子
     fingerprint_res = contextualize_question(
         {"question": question, "target_language": "Normalized_Key"})
-    semantic_key = fingerprint_res.get("question", "").lower().strip()
+    semantic_text = fingerprint_res.get("question", "").lower().strip()
+
+    # 将语义文本转换为哈希，提升缓存键查找效率
+    semantic_key = get_semantic_hash(semantic_text)
 
     # --- 打印观察结果 ---
     print(f"\n{'='*20} [SEMANTIC CACHE] {'='*20}")
-    print(f"【捕获指纹】: {semantic_key}")
-    # 预期输出：allergycheck|lee kum kee|dark soy sauce
+    print(f"【语义指纹】: {semantic_text}")
+    print(f"【缓存键】: {semantic_key}")
     print(f"{'='*55}\n")
 
-    display_q_res = contextualize_question(
-        {"question": question, "target_language": target_lang})
-    refined_q = display_q_res["question"]
-    # --- 打印 Key 供你观察 ---
-    print(f"【标准化语义 Key】: {semantic_key}")
-
-    # 4. 生成展示用的补全意图 (用于 UI 显示)
+    # 5. 生成展示用的补全意图 (仅调用一次，避免重复)
     display_q_res = contextualize_question(
         {"question": question, "target_language": target_lang})
     refined_q = display_q_res.get("question", question)
     yield {"node": "contextualize_question", "status": "complete", "refined_q": refined_q}
 
-    # 5. 语义级缓存检查
+    # 6. 语义级缓存检查
     if semantic_key in st.session_state.response_cache:
+        print("  ✓✓✓ 命中语义缓存！跳过工作流执行")
+        st.session_state.cache_stats["hits"] += 1
         yield {"node": "cache_hit", "status": "complete"}
         final_res = st.session_state.response_cache[semantic_key]
     else:
-        # 6. 缓存未命中：执行正式工作流
+        # 7. 缓存未命中：执行正式工作流
+        print("  ✗ 缓存未命中，执行完整工作流")
+        st.session_state.cache_stats["misses"] += 1
         final_res = "抱歉，由于逻辑异常。"
+
         # 传入补全后的问题，并跳过工作流内部的重复补全节点
         for event in app.stream({"question": refined_q, "target_language": target_lang, "retry_count": 0}, stream_mode="updates"):
             for node_name, output in event.items():
@@ -353,7 +646,12 @@ def query_with_graph(question: str, image_bytes: bytes = None):
                 if "generation" in output:
                     final_res = output["generation"]
 
-        # 将结果存入缓存 (使用语义指纹)
+        # 将结果存入缓存 (使用哈希键)
         st.session_state.response_cache[semantic_key] = final_res
+
+    # 8. 打印缓存统计
+    stats = get_cache_stats()
+    print(
+        f"📊 缓存命中率: {stats['hit_rate']:.1f}% ({stats['hits']}/{stats['total_queries']})")
 
     yield {"node": "end", "generation": final_res, "duration": time.time() - start_time}
