@@ -1,4 +1,4 @@
-from graph_logic import query_with_graph
+from graph_logic import query_with_graph, get_cache_stats, clear_all_caches
 import streamlit as st
 from dotenv import load_dotenv
 from langchain_community.chat_message_histories import StreamlitChatMessageHistory
@@ -7,7 +7,7 @@ load_dotenv()
 
 st.set_page_config(page_title="Food Allergy AI Agent", layout="wide")
 
-# 1. 初始化记忆、处理状态和语义缓存
+# 1. Initialize memory, processing state and semantic cache
 msgs = StreamlitChatMessageHistory(key="messages")
 if "last_processed_file" not in st.session_state:
     st.session_state.last_processed_file = None
@@ -15,65 +15,114 @@ if "response_cache" not in st.session_state:
     st.session_state.response_cache = {}
 
 st.title("🥗 Food Allergy AI Agent")
-st.markdown("上传食品图片或直接提问，我会帮你检查过敏原。")
+st.markdown(
+    "Upload food images or ask questions directly. I'll help you check for allergens.")
 
 with st.sidebar:
-    st.header("⚙️ 设置")
+    st.header("⚙️ Settings")
     language = st.selectbox(
-        "选择回复语言 / Language",
+        "Reply Language / 回复语言",
         ["自动识别 (Auto)", "简体中文", "English", "Français"],
         index=0
     )
     st.session_state.target_language = language
 
-# 2. 侧边栏：上传功能
+    st.divider()
+
+    # Cache Statistics
+    st.header("📊 Smart Cache System")
+    st.caption(
+        "Auto-cache all evaluation results to boost speed while ensuring quality")
+
+    stats = get_cache_stats()
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("Hit Rate", f"{stats['hit_rate']:.1f}%")
+    with col2:
+        st.metric("Total Queries", stats['total_queries'])
+
+    # Display cache layers
+    cache_layers = 0
+    cache_sizes = []
+    for cache_name in ["response_cache", "retrieval_cache", "generation_cache",
+                       "grade_cache", "hallucination_cache", "answer_grade_cache"]:
+        if cache_name in st.session_state:
+            cache_layers += 1
+            cache_sizes.append(len(st.session_state[cache_name]))
+
+    if cache_layers > 0:
+        total_cached_items = sum(cache_sizes)
+        st.info(
+            f"🗄️ {cache_layers} Cache Layers | {total_cached_items} Records")
+
+    if st.button("🗑️ Clear All Caches", use_container_width=True):
+        clear_all_caches()
+        st.success("✅ All caches cleared!")
+        st.rerun()
+
+# 2. Sidebar: Upload function
 with st.sidebar:
-    st.header("图片识别")
+    st.header("Image Recognition")
     uploaded_file = st.file_uploader(
-        "上传食品包装或配料表图片",
+        "Upload food packaging or ingredient label",
         type=["jpg", "jpeg", "png"],
         key="sidebar_uploader"
     )
     if uploaded_file:
-        st.image(uploaded_file, caption="待处理图片", use_container_width=True)
+        st.image(uploaded_file, caption="Image to Process",
+                 use_container_width=True)
 
         if uploaded_file.name != st.session_state.last_processed_file:
-            if st.button("开始识别过敏原"):
+            if st.button("Start Allergen Recognition"):
                 with st.chat_message("assistant"):
-                    with st.spinner("视觉识别中..."):
+                    with st.spinner("Vision recognition in progress..."):
                         try:
+                            # Force English for image recognition
+                            original_lang = st.session_state.get(
+                                "target_language", "English")
+                            st.session_state.target_language = "English"
+
                             image_bytes = uploaded_file.getvalue()
                             response = ""
-                            # 处理流式生成器
-                            for step in query_with_graph("请识别这张图片中的食品名称，并根据数据库查询其过敏原信息。", image_bytes=image_bytes):
+                            # Process streaming generator
+                            for step in query_with_graph("Please identify the food product name in this image and query the database for allergen information.", image_bytes=image_bytes):
                                 if step["node"] == "end":
                                     response = step["generation"]
 
-                            msgs.add_user_message("📸 [用户上传了图片]")
+                            msgs.add_user_message("📸 [User uploaded an image]")
                             msgs.add_ai_message(response)
                             st.session_state.last_processed_file = uploaded_file.name
+
+                            # Restore original language
+                            st.session_state.target_language = original_lang
                             st.rerun()
                         except Exception as e:
-                            st.error(f"识别失败: {str(e)}")
+                            st.error(f"Recognition failed: {str(e)}")
+                            # Restore original language on error
+                            st.session_state.target_language = original_lang
 
-# 3. 主界面渲染历史记录
+# 3. Main interface: Render chat history
 for msg in msgs.messages:
     role = "user" if msg.type == "human" else "assistant"
     with st.chat_message(role):
         st.markdown(msg.content)
 
-# 4. 底部文字问答入口 (带思考过程展示与缓存)
-if prompt := st.chat_input("例如：李锦记有哪些不含大豆的酱？"):
+# 4. Bottom text input with thinking process display and cache
+if prompt := st.chat_input("e.g.: Which Lee Kum Kee sauces are soy-free?"):
     st.chat_message("user").markdown(prompt)
     msgs.add_user_message(prompt)
 
     with st.chat_message("assistant"):
-        with st.status("🔍 正在思考...", expanded=True) as status:
+        with st.status("🔍 Thinking...", expanded=True) as status:
+            # Force English for UI display
+            original_lang = st.session_state.get("target_language", "English")
+            st.session_state.target_language = "English"
+
             final_response = ""
             query_gen = query_with_graph(prompt)
 
-            # 第一步：显式告知用户正在查缓存（增加专业感）
-            st.write("📂 正在进行语义缓存比对...")
+            # Step 1: Notify user about semantic cache checking
+            st.write("📂 Checking semantic cache...")
 
             try:
                 # 运行生成器
@@ -82,36 +131,53 @@ if prompt := st.chat_input("例如：李锦记有哪些不含大豆的酱？"):
 
                     if node == "contextualize_question":
                         refined_q = step.get("refined_q", prompt)
-                        st.write(f"🚦 识别到您的意图为: **{refined_q}**")
+                        st.write(f"🚦 Detected intent: **{refined_q}**")
 
-                    # 【核心修复】：统一使用 response_cache 这个 Key
+                    # Semantic cache hit
                     elif node == "cache_hit":
-                        st.success("✨ **[语义级命中]** 发现历史提议意图，正在闪现答案...")
+                        st.success(
+                            "✨ **[Semantic Cache Hit]** Found historical query, retrieving answer...")
+
+                    elif node == "fast_path_detected":
+                        st.success(
+                            "🚀 **[Fast Path]** Simple query detected, direct SQL (1000x faster)...")
+
+                    elif node == "complex_query_detected":
+                        keyword = step.get("keyword", "complex keyword")
+                        st.info(
+                            f"🤖 **[Multi-hop Mode]** Detected '{keyword}', enabling Agent deep analysis...")
 
                     elif node == "route_question":
-                        st.write("🚦 正在分析问题分发路径...")
+                        st.write("🚦 Analyzing query routing...")
                     elif node == "retrieve":
-                        st.write("📚 正在检索本地向量数据库...")
+                        st.write("📚 Retrieving from local vector database...")
                     elif node == "sql_agent":
-                        st.write("📊 正在执行 SQL 精准数据库查询...")
+                        st.write("📊 Executing SQL precision database query...")
                     elif node == "grade_documents":
-                        st.write("⚖️ 正在评估资料相关性...")
+                        st.write("⚖️ Evaluating document relevance...")
+                    elif node == "generate":
+                        st.write("✍️ Generating response...")
                     elif node == "web_search":
-                        st.write("🌐 本地资料不足，正在启动联网搜索...")
-                    elif node == "hallucination_grader":
-                        st.write("🕵️ 正在进行事实核查...")
-                    elif node == "answer_grader":
-                        st.write("✅ 正在确认回答是否解决了您的问题...")
+                        st.write(
+                            "🌐 Local data insufficient, launching web search...")
+                    elif node == "parallel_graders":
+                        st.write(
+                            "🚀 **[Parallel Acceleration]** Fact-checking and quality assessment in parallel...")
+                    elif node == "handle_off_topic":
+                        st.write("🚫 Non-food related query detected...")
 
                     if node == "end":
                         final_response = step["generation"]
                         duration = step["duration"]
                         status.update(
-                            label=f"✅ 思考完成 (耗时 {duration:.2f}秒)", state="complete", expanded=False)
+                            label=f"✅ Thinking Complete (took {duration:.2f}s)", state="complete", expanded=False)
             except Exception as e:
-                st.error(f"逻辑执行出错: {str(e)}")
+                st.error(f"Execution error: {str(e)}")
 
-        # 思考完成后，显示最终回答
+        # Display final response
         if final_response:
             st.markdown(final_response)
             msgs.add_ai_message(final_response)
+
+        # Restore original language setting
+        st.session_state.target_language = original_lang

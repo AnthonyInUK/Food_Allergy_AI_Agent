@@ -1,6 +1,18 @@
-# Food Allergy Expert Agent
+---
+title: Food Allergy AI Agent
+emoji: 🥗
+colorFrom: red
+colorTo: orange
+sdk: streamlit
+sdk_version: "1.32.0"
+app_file: main.py
+pinned: false
+license: mit
+---
 
-A sophisticated, production-ready AI agent built with **LangGraph** and **Self-RAG** architecture. This application empowers users to instantly verify food ingredients and allergens through natural language conversation or packaging photo uploads. It combines local structured databases with real-time web search to ensure reliable and comprehensive safety guidance.
+# 🥗 Food Allergy AI Agent
+
+A sophisticated AI-powered assistant built with **LangGraph** and **RAG architecture**. This application helps users identify food allergens through natural language conversation or packaging photo uploads, combining structured databases (29k+ products) with real-time web search for reliable safety guidance.
 
 ## Key Features
 
