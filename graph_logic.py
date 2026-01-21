@@ -31,8 +31,17 @@ def get_fast_llm():
 
 @st.cache_resource
 def get_vectorstore():
-    embeddings = OpenAIEmbeddings()
-    return Chroma(persist_directory="data/chroma_db", embedding_function=embeddings)
+    import os
+    try:
+        embeddings = OpenAIEmbeddings()
+        persist_dir = "data/chroma_db"
+        # Ensure directory exists
+        os.makedirs(persist_dir, exist_ok=True)
+        return Chroma(persist_directory=persist_dir, embedding_function=embeddings)
+    except Exception as e:
+        print(f"Warning: Failed to initialize vectorstore: {e}")
+        # Return None and handle gracefully in query logic
+        return None
 
 
 # --- 缓存辅助函数 ---
