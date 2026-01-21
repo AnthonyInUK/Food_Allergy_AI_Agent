@@ -11,6 +11,8 @@ port = 7860
 address = "0.0.0.0"
 enableCORS = false
 enableXsrfProtection = false
+runOnSave = false
+fileWatcherType = "none"
 
 [browser]
 gatherUsageStats = false
