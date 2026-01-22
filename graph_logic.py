@@ -58,6 +58,20 @@ def init_cache_system():
     if "cache_stats" not in st.session_state:
         st.session_state.cache_stats = {"hits": 0, "misses": 0}  # 缓存统计
 
+    # 初始化对应的时间戳映射（用于低侵入 TTL 管理）
+    if "response_cache_ts" not in st.session_state:
+        st.session_state.response_cache_ts = {}
+    if "retrieval_cache_ts" not in st.session_state:
+        st.session_state.retrieval_cache_ts = {}
+    if "generation_cache_ts" not in st.session_state:
+        st.session_state.generation_cache_ts = {}
+    if "grade_cache_ts" not in st.session_state:
+        st.session_state.grade_cache_ts = {}
+    if "hallucination_cache_ts" not in st.session_state:
+        st.session_state.hallucination_cache_ts = {}
+    if "answer_grade_cache_ts" not in st.session_state:
+        st.session_state.answer_grade_cache_ts = {}
+
 
 def get_cache_stats():
     """获取缓存命中率统计"""
@@ -65,6 +79,42 @@ def get_cache_stats():
     total = stats["hits"] + stats["misses"]
     hit_rate = (stats["hits"] / total * 100) if total > 0 else 0
     return {"hit_rate": hit_rate, "total_queries": total, **stats}
+
+
+# --- 缓存过期配置（低侵入实现）
+# 默认为 1 小时过期；可以按需调整
+CACHE_TTL_SECONDS = int(os.getenv("CACHE_TTL_SECONDS", 3600))
+
+
+def purge_expired_caches():
+    """遍历所有 *_ts 映射，删除过期的 key（同时删除对应的 value），保证原有 value 结构不变。"""
+    now = time.time()
+    # 映射关系：主缓存名 -> 对应的时间戳映射名
+    cache_pairs = {
+        "response_cache": "response_cache_ts",
+        "retrieval_cache": "retrieval_cache_ts",
+        "generation_cache": "generation_cache_ts",
+        "grade_cache": "grade_cache_ts",
+        "hallucination_cache": "hallucination_cache_ts",
+        "answer_grade_cache": "answer_grade_cache_ts",
+    }
+
+    for cache_name, ts_name in cache_pairs.items():
+        cache = st.session_state.get(cache_name)
+        ts_map = st.session_state.get(ts_name)
+        if not cache or not ts_map:
+            continue
+
+        # 收集要删除的 keys，避免在迭代时修改 dict
+        expired_keys = [k for k, ts in ts_map.items() if (now - ts) > CACHE_TTL_SECONDS]
+        if not expired_keys:
+            continue
+
+        for k in expired_keys:
+            cache.pop(k, None)
+            ts_map.pop(k, None)
+
+        print(f"purge_expired_caches: removed {len(expired_keys)} expired items from {cache_name}")
 
 
 def clear_all_caches():
@@ -87,7 +137,20 @@ def clear_all_caches():
     if "cache_stats" in st.session_state:
         st.session_state.cache_stats = {"hits": 0, "misses": 0}
 
-    print(f"✓ 已清空 {cleared_count} 个缓存层")
+    # 同步清理对应的时间戳映射
+    ts_names = [
+        "response_cache_ts",
+        "retrieval_cache_ts",
+        "generation_cache_ts",
+        "grade_cache_ts",
+        "hallucination_cache_ts",
+        "answer_grade_cache_ts",
+    ]
+    for t in ts_names:
+        if t in st.session_state:
+            st.session_state[t].clear()
+
+    print(f"✓ 已清空 {cleared_count} 个缓存层 和 对应时间戳映射")
 
 
 # --- 2. 结构化输出 Schema ---
@@ -129,7 +192,26 @@ class GraphState(TypedDict):
 # --- 4. 节点逻辑 ---
 
 
+def normalize_semantic_key(semantic_text: str) -> str:
+    # 统一大小写
+    semantic_text = semantic_text.lower()
+    # 去掉 premium
+    semantic_text = semantic_text.replace("premium ", "")
+    # 逗号/and/空格统一为 |
+    semantic_text = semantic_text.replace(", ", "|").replace(" and ", "|")
+    # 多个 | 合并
+    semantic_text = "|".join([s.strip()
+                             for s in semantic_text.split("|") if s.strip()])
+    # 可选：对产品名部分排序
+    parts = semantic_text.split("|")
+    if len(parts) > 2:
+        # 对产品名部分排序
+        products = sorted(parts[2:])
+        semantic_text = "|".join(parts[:2] + products)
+    return semantic_text
+
 def contextualize_question(state):
+    t0 = time.time()
     print("--- 🚦 正在进行上下文补全 ---")
     question = state["question"]
     target_lang = state.get("target_language", "自动识别 (Auto)")
@@ -191,11 +273,13 @@ def contextualize_question(state):
     ])
     res = (prompt | llm).invoke({"history": history, "question": question})
     print(f"【问题补全结果】: {res.content}")
+    print(f"[耗时] contextualize_question: {time.time() - t0:.2f}s")
     return {"question": res.content}
 
 
 def route_question(state):
     """【100% 还原你最满意的高精度路由提示词】"""
+    t0 = time.time()
     print("--- 智能路由与安全网关 ---")
     llm = get_fast_llm()
     structured_llm = llm.with_structured_output(route_schema)
@@ -230,6 +314,7 @@ def route_question(state):
 
     res = (ChatPromptTemplate.from_messages(
         [("system", system), ("human", "{question}")]) | structured_llm).invoke({"question": state["question"]})
+    print(f"[耗时] route_question: {time.time() - t0:.2f}s")
     decision = res["datasource"] if isinstance(res, dict) else res.datasource
     return {"router_decision": decision}
 
@@ -269,6 +354,9 @@ def retrieve(state):
     # 存入检索缓存
     if "retrieval_cache" in st.session_state:
         st.session_state.retrieval_cache[cache_key] = doc_texts
+        # 记录时间戳
+        if "retrieval_cache_ts" in st.session_state:
+            st.session_state.retrieval_cache_ts[cache_key] = time.time()
 
     return {"documents": doc_texts}
 
@@ -293,14 +381,19 @@ def grade_documents(state):
         return {"web_search": st.session_state.grade_cache[cache_key]}
 
     # 缓存未命中：执行 LLM 评估
+    t0 = time.time()
     llm = get_fast_llm()
     res = (ChatPromptTemplate.from_messages([("system", "判断资料是否足以回答问题。"), ("human", "问题: {question} \n资料: {documents}")]) | llm.with_structured_output(
         grade_schema)).invoke({"question": question, "documents": docs_text})
+    print(f"[耗时] grade_documents: {time.time() - t0:.2f}s")
     score = res["score"] if isinstance(res, dict) else res.score
     result = "No" if score == "yes" else "Yes"
 
     # 存入缓存
     st.session_state.grade_cache[cache_key] = result
+    # 记录时间戳
+    if "grade_cache_ts" in st.session_state:
+        st.session_state.grade_cache_ts[cache_key] = time.time()
 
     return {"web_search": result}
 
@@ -333,14 +426,19 @@ def generate(state):
     else:
         lang_instruction = "请使用用户提问的语言回答。"
 
+    t0 = time.time()
     llm = get_llm()
     prompt = ChatPromptTemplate.from_template(
         f"你是一个食品过敏专家。\n{lang_instruction}\n【重要】必须在末尾列出参考来源。\n资料: {{documents}}\n问题: {{question}}")
     response = (prompt | llm).invoke(
         {"documents": state["documents"], "question": state["question"]})
+    print(f"[耗时] generate: {time.time() - t0:.2f}s")
 
     # 存入生成缓存
     st.session_state.generation_cache[cache_key] = response.content
+    # 记录时间戳
+    if "generation_cache_ts" in st.session_state:
+        st.session_state.generation_cache_ts[cache_key] = time.time()
 
     return {"generation": response.content, "retry_count": retry_count}
 
@@ -372,13 +470,18 @@ def hallucination_grader(state):
         return {"hallucination_score": st.session_state.hallucination_cache[cache_key]}
 
     # 缓存未命中：执行 LLM 判断
+    t0 = time.time()
     llm = get_fast_llm()
     res = (ChatPromptTemplate.from_messages([("system", "判断回答是否基于参考资料。"), ("human", "资料: {documents} \n回答: {generation}")]) | llm.with_structured_output(
         grade_schema)).invoke({"documents": docs_text, "generation": generation})
+    print(f"[耗时] hallucination_grader: {time.time() - t0:.2f}s")
     score = res["score"] if isinstance(res, dict) else res.score
 
     # 存入缓存
     st.session_state.hallucination_cache[cache_key] = score
+    # 记录时间戳
+    if "hallucination_cache_ts" in st.session_state:
+        st.session_state.hallucination_cache_ts[cache_key] = time.time()
 
     return {"hallucination_score": score}
 
@@ -400,13 +503,18 @@ def answer_grader(state):
         return {"answer_score": st.session_state.answer_grade_cache[cache_key]}
 
     # 缓存未命中：执行 LLM 判断
+    t0 = time.time()
     llm = get_fast_llm()
     res = (ChatPromptTemplate.from_messages([("system", "判断回答是否解决了用户问题。"), ("human", "问题: {question} \n回答: {generation}")]) | llm.with_structured_output(
         grade_schema)).invoke({"question": question, "generation": generation})
+    print(f"[耗时] answer_grader: {time.time() - t0:.2f}s")
     score = res["score"] if isinstance(res, dict) else res.score
 
     # 存入缓存
     st.session_state.answer_grade_cache[cache_key] = score
+    # 记录时间戳
+    if "answer_grade_cache_ts" in st.session_state:
+        st.session_state.answer_grade_cache_ts[cache_key] = time.time()
 
     return {"answer_score": score}
 
@@ -485,6 +593,12 @@ def query_with_graph(question: str, image_bytes: bytes = None):
     # 1. 初始化多层缓存系统
     init_cache_system()
 
+    # 在每次查询开始时清理过期缓存（低侵入策略）
+    try:
+        purge_expired_caches()
+    except Exception as e:
+        print(f"purge_expired_caches 异常: {e}")
+
     # 2. 图片识别逻辑 (独立运行，不使用缓存)
     if image_bytes:
         from agent_logic import query_text as vision_query
@@ -519,6 +633,7 @@ def query_with_graph(question: str, image_bytes: bytes = None):
         fingerprint_res = contextualize_question(
             {"question": question, "target_language": "Normalized_Key"})
         semantic_text = fingerprint_res.get("question", "").lower().strip()
+        semantic_text = normalize_semantic_key(semantic_text)
         semantic_key = get_semantic_hash(semantic_text)
 
         print(f"  📌 快速路径语义指纹: {semantic_text}")
@@ -547,6 +662,9 @@ def query_with_graph(question: str, image_bytes: bytes = None):
             if "response_cache" not in st.session_state:
                 st.session_state.response_cache = {}
             st.session_state.response_cache[semantic_key] = result
+            # 记录时间戳
+            if "response_cache_ts" in st.session_state:
+                st.session_state.response_cache_ts[semantic_key] = time.time()
             print(f"  💾 已存入语义缓存（键: {semantic_key}）")
             if "cache_stats" in st.session_state:
                 st.session_state.cache_stats["misses"] += 1
@@ -567,6 +685,7 @@ def query_with_graph(question: str, image_bytes: bytes = None):
         fingerprint_res = contextualize_question(
             {"question": question, "target_language": "Normalized_Key"})
         semantic_text = fingerprint_res.get("question", "").lower().strip()
+        semantic_text = normalize_semantic_key(semantic_text)
         semantic_key = get_semantic_hash(semantic_text)
 
         print(f"  📌 多跳查询语义指纹: {semantic_text}")
@@ -599,6 +718,9 @@ def query_with_graph(question: str, image_bytes: bytes = None):
         if "response_cache" not in st.session_state:
             st.session_state.response_cache = {}
         st.session_state.response_cache[semantic_key] = response
+        # 记录时间戳
+        if "response_cache_ts" in st.session_state:
+            st.session_state.response_cache_ts[semantic_key] = time.time()
         print(f"  💾 已存入多跳查询缓存（键: {semantic_key}）")
 
         yield {"node": "end", "generation": response, "duration": time.time() - start_time}
@@ -609,7 +731,7 @@ def query_with_graph(question: str, image_bytes: bytes = None):
     fingerprint_res = contextualize_question(
         {"question": question, "target_language": "Normalized_Key"})
     semantic_text = fingerprint_res.get("question", "").lower().strip()
-
+    semantic_text = normalize_semantic_key(semantic_text)
     # 将语义文本转换为哈希，提升缓存键查找效率
     semantic_key = get_semantic_hash(semantic_text)
 
@@ -648,6 +770,9 @@ def query_with_graph(question: str, image_bytes: bytes = None):
 
         # 将结果存入缓存 (使用哈希键)
         st.session_state.response_cache[semantic_key] = final_res
+        # 记录时间戳
+        if "response_cache_ts" in st.session_state:
+            st.session_state.response_cache_ts[semantic_key] = time.time()
 
     # 8. 打印缓存统计
     stats = get_cache_stats()

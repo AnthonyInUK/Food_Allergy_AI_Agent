@@ -1,0 +1,40 @@
+[
+  {
+    "id": "4acf5f3b-b263-481b-8941-778e99c9626b",
+    "title": "New conversation",
+    "created_at": "2026-01-22T03:36:13.768080Z",
+    "updated_at": "2026-01-22T03:45:52.278614Z",
+    "pinned": false,
+    "messages": [
+      {
+        "role": "user",
+        "text": "李锦记老抽和生抽的区别",
+        "ts": 1769053543.5454211
+      },
+      {
+        "role": "assistant",
+        "text": "The main differences between Lee Kum Kee Premium Dark Soy Sauce (老抽) and Superior Light Soy Sauce (生抽) are as follows:\n\n1. **Ingredients**:\n   - **Dark Soy Sauce**: Contains water, color (150a), soybeans (14%), salt, corn starch, and sugar.\n   - **Light Soy Sauce**: Contains water, salt, soybeans (6%), high fructose corn syrup, wheat flour, flavor enhancers (621, 631, 627), color (150a), preservative (202), and sweetener (951).\n\n2. **Usage**:\n   - **Dark Soy Sauce** is typically used for adding color and a richer flavor to dishes.\n   - **Light Soy Sauce** is used for seasoning and enhancing the flavor of dishes without adding much color.\n\n3. **Flavor Profile**:\n   - **Dark Soy Sauce** has a sweeter and more robust flavor.\n   - **Light Soy Sauce** has a saltier and lighter taste.\n\nIn summary, dark soy sauce is thicker, sweeter, and used for color, while light soy sauce is thinner, saltier, and used for seasoning.",
+        "ts": 1769053552.278408
+      }
+    ]
+  },
+  {
+    "id": "caa0d898-0068-4d08-bfec-5c35634ebf0b",
+    "title": "New conversation",
+    "created_at": "2026-01-22T03:35:49.892103Z",
+    "updated_at": "2026-01-22T03:36:09.194306Z",
+    "pinned": false,
+    "messages": [
+      {
+        "role": "user",
+        "text": "李锦记老抽长什么样",
+        "ts": 1769052968.217234
+      },
+      {
+        "role": "assistant",
+        "text": "Here is the product image of Lee Kum Kee Premium Dark Soy Sauce:\n\n![Lee Kum Kee Premium Dark Soy Sauce](https://images.openfoodfacts.org/images/products/007/889/512/9625/front_fr.3.400.jpg)",
+        "ts": 1769052969.19394
+      }
+    ]
+  }
+]

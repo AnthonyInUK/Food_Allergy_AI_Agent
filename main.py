@@ -1,11 +1,21 @@
 from graph_logic import query_with_graph, get_cache_stats, clear_all_caches
 import streamlit as st
 from dotenv import load_dotenv
+import time
 from langchain_community.chat_message_histories import StreamlitChatMessageHistory
+
+# Conversation persistence helpers (lightweight JSON store)
+from convo_store import load_conversations, create_conversation, save_conversation, delete_conversation, find_conversation_by_id
 
 load_dotenv()
 
 st.set_page_config(page_title="Food Allergy AI Agent", layout="wide")
+
+
+# Note: we intentionally avoid calling Streamlit's rerun APIs to remain
+# compatible across versions. Sidebar actions (select/new/delete) update
+# `st.session_state` directly so the UI updates without forcing a rerun.
+
 
 # 1. Initialize memory, processing state and semantic cache
 msgs = StreamlitChatMessageHistory(key="messages")
@@ -14,11 +24,59 @@ if "last_processed_file" not in st.session_state:
 if "response_cache" not in st.session_state:
     st.session_state.response_cache = {}
 
+# --- Conversation persistence state ---
+convos = load_conversations()
+if "current_conversation_id" not in st.session_state:
+    # open first existing convo or create a new one
+    if convos:
+        st.session_state.current_conversation_id = convos[0].get("id")
+    else:
+        conv = create_conversation()
+        st.session_state.current_conversation_id = conv["id"]
+        convos = load_conversations()
+
+
 st.title("🥗 Food Allergy AI Agent")
 st.markdown(
     "Upload food images or ask questions directly. I'll help you check for allergens.")
 
 with st.sidebar:
+    st.header("💬 Conversations")
+    # Reload conversations each sidebar render
+    convos = load_conversations()
+    conv_map = {c.get("title") + " — " + c.get("id")
+                [:8]: c.get("id") for c in convos}
+
+    # selection
+    selected_title = None
+    if convs := list(conv_map.keys()):
+        selected_title = st.selectbox("Open conversation", convs, index=0)
+        if selected_title:
+            selected_id = conv_map[selected_title]
+            if st.session_state.get("current_conversation_id") != selected_id:
+                st.session_state.current_conversation_id = selected_id
+                # mark that we switched conversations so the in-memory chat history
+                # (`msgs`) can be refreshed to show the selected convo immediately
+                st.session_state["_conversation_changed"] = True
+
+    if st.button("+ New conversation"):
+        new_conv = create_conversation()
+        st.session_state.current_conversation_id = new_conv["id"]
+        st.session_state["_conversation_changed"] = True
+
+    if st.button("🗑️ Delete conversation"):
+        cid = st.session_state.get("current_conversation_id")
+        if cid:
+            delete_conversation(cid)
+            # pick first remaining or create new
+            convs = load_conversations()
+            if convs:
+                st.session_state.current_conversation_id = convs[0].get("id")
+            else:
+                nc = create_conversation()
+                st.session_state.current_conversation_id = nc["id"]
+            st.session_state["_conversation_changed"] = True
+
     st.header("⚙️ Settings")
     language = st.selectbox(
         "Reply Language / 回复语言",
@@ -58,7 +116,6 @@ with st.sidebar:
     if st.button("🗑️ Clear All Caches", use_container_width=True):
         clear_all_caches()
         st.success("✅ All caches cleared!")
-        st.rerun()
 
 # 2. Sidebar: Upload function
 with st.sidebar:
@@ -93,24 +150,75 @@ with st.sidebar:
                             msgs.add_ai_message(response)
                             st.session_state.last_processed_file = uploaded_file.name
 
+                            # Persist to conversation store
+                            cid = st.session_state.get("current_conversation_id")
+                            if cid:
+                                conv = find_conversation_by_id(cid)
+                                if conv is None:
+                                    conv = create_conversation()
+                                    st.session_state.current_conversation_id = conv["id"]
+                                conv.setdefault("messages", []).append({"role": "user", "text": "📸 [User uploaded an image]", "ts": time.time()})
+                                conv.setdefault("messages", []).append({"role": "assistant", "text": response, "ts": time.time()})
+                                save_conversation(conv)
+
                             # Restore original language
                             st.session_state.target_language = original_lang
-                            st.rerun()
                         except Exception as e:
                             st.error(f"Recognition failed: {str(e)}")
                             # Restore original language on error
                             st.session_state.target_language = original_lang
 
 # 3. Main interface: Render chat history
-for msg in msgs.messages:
-    role = "user" if msg.type == "human" else "assistant"
-    with st.chat_message(role):
-        st.markdown(msg.content)
+# Prefer showing the currently opened conversation (if present); fall back to in-memory Streamlit history
+current_conv = None
+cid = st.session_state.get("current_conversation_id")
+if cid:
+    current_conv = find_conversation_by_id(cid)
+
+# If the conversation just changed, refresh the in-memory Streamlit chat history
+# so the UI shows the persisted conversation immediately without calling rerun.
+if st.session_state.get("_conversation_changed") and current_conv:
+    try:
+        # reset the in-memory messages list used by StreamlitChatMessageHistory
+        st.session_state["messages"] = []
+        # repopulate
+        for m in current_conv.get("messages", []):
+            if m.get("role") == "user":
+                msgs.add_user_message(m.get("text", ""))
+            else:
+                msgs.add_ai_message(m.get("text", ""))
+    except Exception as _e:
+        # best-effort: if the underlying structure differs, ignore and fall back
+        print(f"Warning: failed to refresh in-memory messages: {_e}")
+    finally:
+        st.session_state["_conversation_changed"] = False
+
+if current_conv:
+    for m in current_conv.get("messages", []):
+        role = m.get("role", "user")
+        text = m.get("text", "")
+        with st.chat_message(role):
+            st.markdown(text)
+else:
+    for msg in msgs.messages:
+        role = "user" if msg.type == "human" else "assistant"
+        with st.chat_message(role):
+            st.markdown(msg.content)
 
 # 4. Bottom text input with thinking process display and cache
 if prompt := st.chat_input("e.g.: Which Lee Kum Kee sauces are soy-free?"):
     st.chat_message("user").markdown(prompt)
     msgs.add_user_message(prompt)
+
+    # Persist user message to conversation
+    cid = st.session_state.get("current_conversation_id")
+    if cid:
+        conv = find_conversation_by_id(cid)
+        if conv is None:
+            conv = create_conversation()
+            st.session_state.current_conversation_id = conv["id"]
+        conv.setdefault("messages", []).append({"role": "user", "text": prompt, "ts": time.time()})
+        save_conversation(conv)
 
     with st.chat_message("assistant"):
         with st.status("🔍 Thinking...", expanded=True) as status:
@@ -178,6 +286,16 @@ if prompt := st.chat_input("e.g.: Which Lee Kum Kee sauces are soy-free?"):
         if final_response:
             st.markdown(final_response)
             msgs.add_ai_message(final_response)
+
+            # Persist assistant response to conversation
+            cid = st.session_state.get("current_conversation_id")
+            if cid:
+                conv = find_conversation_by_id(cid)
+                if conv is None:
+                    conv = create_conversation()
+                    st.session_state.current_conversation_id = conv["id"]
+                conv.setdefault("messages", []).append({"role": "assistant", "text": final_response, "ts": time.time()})
+                save_conversation(conv)
 
         # Restore original language setting
         st.session_state.target_language = original_lang
