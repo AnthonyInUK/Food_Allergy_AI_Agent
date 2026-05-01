@@ -11,6 +11,9 @@ build
 dist
 out
 
+# Next.js（勿提交 .next，含体积巨大的 webpack cache）
+.next
+
 # misc
 .DS_Store
 *.pem
