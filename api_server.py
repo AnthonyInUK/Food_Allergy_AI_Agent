@@ -152,7 +152,8 @@ def analyze_food_image(image_path: str) -> dict:
 
         # 第一步：用GPT-4o识别图片中的产品
         step1_start = time.time()
-        llm = ChatOpenAI(model="gpt-4o", temperature=0)
+        _base_url_api = os.getenv("OPENAI_BASE_URL", "").strip() or None
+        llm = ChatOpenAI(model="gpt-4o", temperature=0, **({"base_url": _base_url_api} if _base_url_api else {}))
 
         message = HumanMessage(
             content=[

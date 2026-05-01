@@ -58,7 +58,8 @@ def get_fast_llm():
     """获取轻量级LLM实例（缓存）"""
     global _llm_cache
     if _llm_cache is None:
-        _llm_cache = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+        _base_url = os.getenv("OPENAI_BASE_URL", "").strip() or None
+        _llm_cache = ChatOpenAI(model="gpt-4o-mini", temperature=0, **({"base_url": _base_url} if _base_url else {}))
     return _llm_cache
 
 
@@ -67,7 +68,8 @@ def get_vision_llm():
     global _vision_llm_cache
     if _vision_llm_cache is None:
         model = os.getenv("VISION_LLM_MODEL", "gpt-4o").strip() or "gpt-4o"
-        _vision_llm_cache = ChatOpenAI(model=model, temperature=0)
+        _base_url_v = os.getenv("OPENAI_BASE_URL", "").strip() or None
+        _vision_llm_cache = ChatOpenAI(model=model, temperature=0, **({"base_url": _base_url_v} if _base_url_v else {}))
     return _vision_llm_cache
 
 
