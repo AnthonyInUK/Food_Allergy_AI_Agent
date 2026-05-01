@@ -31,3 +31,6 @@ Thumbs.db
 # Temporary files
 *.tmp
 test_*.py
+
+# Chroma 向量库（本地/容器内生成，勿提交；避免 Git LFS 推送失败）
+data/chroma_db/
