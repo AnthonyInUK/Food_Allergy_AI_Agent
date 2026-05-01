@@ -1114,7 +1114,7 @@ def _print_answer_provenance(state: GraphState) -> None:
     need_web = state.get("need_web")
 
     explain_zh = {
-        "sql_fallback": "生成走本地 SQLite「products」直出（plan_route 命中配料）；向量检索仍可能跑过，但本答案不依赖向量块",
+        "sql_fallback": "生成走 PostgreSQL「products」直出（plan_route 命中配料）；向量检索仍可能跑过，但本答案不依赖向量块",
         "rag": "生成主要依据向量库(Chroma) 召回的本地摘录 + LLM",
         "web_search": "生成同时参考了向量召回与联网(Tavily)摘录 + LLM",
         "web_fallback": "生成主要依据联网摘录（向量无/弱或路由要求联网）+ LLM",
