@@ -5,7 +5,7 @@ colorFrom: red
 colorTo: pink
 sdk: docker
 app_port: 7860
-short_description: FastAPI backend — use Next.js frontend or /docs against this Space URL
+short_description: FastAPI backend; open /docs or use your Next.js app.
 pinned: false
 license: mit
 ---
