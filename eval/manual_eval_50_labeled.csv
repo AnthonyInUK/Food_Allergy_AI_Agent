@@ -1,0 +1,420 @@
+id,question,expected_key_facts,model_answer,label,error_type,notes,review_priority
+case_001,Big Bon Изделия макаронные быстрого приготовления. Лапша «Говядина + соус «Томатный с базиликом» 的成分是什么？,"лапша (мука пшеничная 1 сорта фортифицированная (мука, витаминно-минеральный премикс (железо, цинк, никотиновая кислота, тиамин, рибофлавин, фолиевая кислота)), масло растительное,","该产品的成分如下：
+
+- 拉面（小麦粉1级强化粉（粉、维生素矿物质预混合物（铁、锌、烟酸、硫胺素、核黄素、叶酸））
+- 植物油
+- 饮用水
+- 碘盐（盐、碘酸钾）
+- 稳定剂（碳酸钾，E452）
+- 酸度调节剂
+
+请注意，具体成分可能会有所不同，建议查看包装上的详细信息。",partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""partial"",
+  ""error_type"": ""incomplete"",
+  ""notes"": ""The model answer is missing some key ingredients such as 'соус «Томатный с базиликом»' and 'воды'."",
+  ""review_priority"": ""med",high
+case_002,"Health Canada Game meat, horse, roasted 的成分是什么？","Game meat, horse, roasted / Gibier, viande, cheval, rôti","根据查询结果，Health Canada 的“Game meat, horse, roasted”成分如下：
+
+- **成分**：Game meat, deer (venison), top round, separable lean only, 1"" steak, cooked, broiled
+
+如果您需要更多信息，请告诉我！",partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""wrong"",
+  ""error_type"": ""retrieval_miss"",
+  ""notes"": ""The model answer provides incorrect information about the ingredients of 'Game meat, horse, roasted' and does not include th",high
+case_003,Lobo Red curry cooking kit 的成分是什么？,"Lait de coco 79 % [eau, extrait de noix de coco, stabilisant: E466, émulsifiant: E435], pâte de curry rouge 19,8 % [épices (citronelle, piment, échalote, ail, galanga, zeste de com","Lobo Red curry cooking kit 的成分如下：
+
+- 椰奶 79% [水、椰子提取物、稳定剂: E466、乳化剂: E435]
+- 红咖喱酱 19.8% [香料（香茅、辣椒、青葱、大蒜、南姜、柚子皮、香菜）、盐、大豆油、椰糖]
+- 干香料 1.2% [辣椒、香叶等]
+
+请注意，这些成分中包含大豆油。",partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""partial"",
+  ""error_type"": ""incomplete"",
+  ""notes"": ""The model answer includes additional ingredients not mentioned in the expected key facts and omits some details from the expec",high
+case_004,MEXT Japan しいたけ 生しいたけ 原木栽培 油いため 的成分是什么？,しいたけ 生しいたけ 原木栽培 油いため,"该产品的成分是：しいたけ 生しいたけ 菌床栽培 油いため。
+
+根据查询结果，该产品没有标明过敏原，因此可以认为它不含已知的过敏原。",partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""partial"",
+  ""error_type"": ""incomplete"",
+  ""notes"": ""The model answer includes '菌床栽培' instead of '原木栽培', which is a significant deviation from the expected key facts. However, it ",high
+case_005,Kailo Brand Soupe De Nouilles Super Bowl Tom Yum 的成分是什么？,"Nouilles: Farine de bit. Hulle de palme, Amidon de tapioca, Sel, All, Acidifia (E5000), E501(0) Sachet d'assaisonnements: Sel, Exhauteur de goût (E621) Sucre, Maltodextrin Arome cr",抱歉，未能找到Kailo品牌的“Soupe De Nouilles Super Bowl Tom Yum”的成分信息。请确认产品名称或品牌是否正确。,partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""proper_refusal"",
+  ""error_type"": ""retrieval_miss"",
+  ""notes"": ""The model correctly refused to provide information due to the inability to retrieve the ingredient list for the spe",high
+case_006,Fresh Express Incorporated ASIAN SALAD 的成分是什么？,"VEGETABLES: GREEN CABBAGE, ROMAINE LETTUCE, RED CABBAGE, CARROTS, GREEN ONION, DRESSING: WATER, SOYBEAN OIL, SUGAR, SOY SAUCE (WATER, WHEAT, SOYBEANS, SALT), SESAME OIL, DISTILLED ",抱歉，我没有找到 Fresh Express Incorporated ASIAN SALAD 的成分信息。请确认产品名称是否正确，或者提供其他信息以便我进行查询。,partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""proper_refusal"",
+  ""error_type"": ""retrieval_miss"",
+  ""notes"": ""The model correctly refused to provide information due to lack of data, but it should have included a note about th",high
+case_007,"Health Canada Cranberry, raw 的成分是什么？","Cranberry, raw / Canneberge, crue","Health Canada 的生蔓越莓的成分是：生蔓越莓（Cranberry, raw）。",partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""correct"",
+  ""error_type"": ""none"",
+  ""notes"": ""The model answer accurately reflects the expected key facts."",
+  ""review_priority"": ""low""
+}
+```",high
+case_008,Toque du chef Velouté potiron crème fraîche 的成分是什么？,"53% légumes (29% potirons, carottes, 7,5% pommes de terre, oignons, purée de tomates reconstituée), eau, 2,5% crème fraîche (lait), amidon modifié de maïs, beurre (lait), sucre, se","Toque du chef Velouté potiron crème fraîche 的成分是：
+
+- 53% 蔬菜（29% 南瓜、胡萝卜、7.5% 土豆、洋葱、重构的番茄泥）
+- 水
+- 2.5% 鲜奶油（牛奶）
+- 改性玉米淀粉
+- 黄油（牛奶）
+- 糖
+- 盐
+- 酵母提取物",partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""correct"",
+  ""error_type"": ""none"",
+  ""notes"": ""The model answer accurately lists the ingredients of Toque du chef Velouté potiron crème fraîche."",
+  ""review_priority"": ""high""
+}
+``",high
+case_009,Youngs Lemon & Pepper Gastro Fillets 的成分是什么？,"Alaska Pollock Fillet (58%) (Fish), Wheat Flour [Wheat Flour, Calcium Carbonate, Iron, Niacin (B3), Thiamin (B1)], Rapeseed Oil, Water, Wheat Starch, Wheat Gluten, Rice Flour, Salt","Youngs Lemon & Pepper Gastro Fillets 的成分是：
+
+- 阿拉斯加鳕鱼片（58%）
+- 小麦粉（小麦粉、碳酸钙、铁、烟酸（B3）、硫胺素（B1））
+- 菜籽油
+- 水
+- 小麦淀粉
+- 小麦面筋
+- 大米粉
+- 盐
+- 酵母
+- 黑胡椒
+- 调味料
+- 柠檬粉
+- 发酵剂：二磷酸盐、碳酸氢钠
+- 葵花籽油
+
+请注意，以上成分中可能含有过敏原。",partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""partial"",
+  ""error_type"": ""incomplete"",
+  ""notes"": ""The model answer includes additional ingredients (yeast, black pepper, seasonings, lemon powder, raising agents, sunflower oil",high
+case_010,Nongshim Kimchi Bowl Noodles 的成分是什么？,"MAKARON 88% [mąka _pszenna_, olej palmowy, skrobia ziemniaczana, sól, mieszanka przypraw (olej słonecznikowy, cukier), regulatory kwasowości (E501, E500, E339), przeciwutleniacz (E","Nongshim Kimchi Bowl Noodles 的成分是：
+
+- 面条 88% [小麦粉、棕榈油、土豆淀粉、盐、调味料混合（葵花籽油、糖）、酸度调节剂（E501、E500、E339）、抗氧化剂（E306）、乳化剂（E322（含大豆））、绿茶提取物、色素（E101）]
+- 调味料 11% [混合调料...] 
+
+请注意，成分中含有大豆。",partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""partial"",
+  ""error_type"": ""incomplete"",
+  ""notes"": ""The model answer provides some ingredients but is incomplete and does not fully match the expected key facts."",
+  ""review_prio",high
+case_011,McCormick Pimentón de La Vera dulce 的成分是什么？,Pimentón dulce.,McCormick Pimentón de La Vera dulce 的成分是：Pimentón dulce.,partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""correct"",
+  ""error_type"": ""none"",
+  ""notes"": ""The model answer correctly identifies the key ingredient."",
+  ""review_priority"": ""low""
+}
+```",high
+case_012,Tassimo Café long intense Tassimo 的成分是什么？,café 100%,Café long intense Tassimo 的成分是：café 100%。,partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""correct"",
+  ""error_type"": ""none"",
+  ""notes"": ""The model answer accurately reflects the expected key facts."",
+  ""review_priority"": ""low""
+}
+```",high
+case_013,"HERTA, Le Bon Paris HERTA LE BON PARIS Jambon à l'étouffée sans nitrite x8 -280g 的成分是什么？","Jambon frais de porc, Sel, Arômes naturels (présence naturelle de polyphénols), Bouillon (eau, gras et couenne de porc, os de porc, sel, extraits de carotte et d'oignon, épices et ",Agent stopped due to max iterations.,partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""wrong"",
+  ""error_type"": ""timeout_or_iteration"",
+  ""notes"": ""The model did not provide the expected ingredient list due to stopping at max iterations."",
+  ""review_priority"": ""high",high
+case_014,"Maruchan, Maruchan Inc. Yakisoba chicken 的成分是什么？","Enriched wheat flour (wheat flour, niacin, reduced iron, thiamine mononitrate, riboflavin, folic acid), vegetable oil (contains one or more of the following: canola, cottonseed, pa","Maruchan的Yakisoba鸡肉的成分如下：
+
+- 总脂肪：20克
+- 饱和脂肪：10克
+- 反式脂肪：0克
+- 胆固醇：0毫克
+
+请注意，具体成分可能会有所不同，建议查看包装上的成分表以获取最新信息。",partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""partial"",
+  ""error_type"": ""retrieval_miss"",
+  ""notes"": ""The model answer provides nutritional information but fails to list the specific ingredients as requested."",
+  ""review_pri",high
+case_015,Ducros Ciboulette 的成分是什么？,Ciboulette déshydratée,Ducros Ciboulette 的成分是：脱水细香葱（Ciboulette déshydratée）。,partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""correct"",
+  ""error_type"": ""none"",
+  ""notes"": ""The model answer accurately provides the ingredient of Ducros Ciboulette."",
+  ""review_priority"": ""low""
+}
+```",high
+case_016,Fountain Fountain Soy & Honey Sauce 的成分是什么？,"WATER, SUGAR SYRUP, HYDROLYSED VEGETABLE PROTEIN SOYBEANS 1.5%,MAIZE,HONEY (8%), SALT, COLOUR (150d), WHITE VINEGAR, REHYDRATED GARLIC, THICKENER (1422), SPICE. INGREDIENT/S CONTAI","Fountain Soy & Honey Sauce 的成分是：
+
+水、糖浆、水解植物蛋白（大豆 1.5%）、玉米、蜂蜜（8%）、盐、色素（150d）、白醋、再水化大蒜、增稠剂（1422）、香料。成分中含有添加的亚硫酸盐和大豆产品。",partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""partial"",
+  ""error_type"": ""incomplete"",
+  ""notes"": ""The model answer is missing the mention of added sulfites, which is a key fact in the expected key facts."",
+  ""review_priority",high
+case_017,Nissin Cup Noodles Sabor a Carne 的成分是什么？,"Pasta precocida [Harina de trigo enriquecida (harina de trigo, sulfato ferroso 0.0030%, ácido fólico 0.00022%, tiamina 0.00063%, riboflavina 0.00013%, niacina 0.0013%), grasa veget","Nissin Cup Noodles Sabor a Carne 的成分如下：
+
+- 预煮面条（富含小麦粉、铁硫酸盐、叶酸、硫胺素、核黄素、烟酸）、植物油、木薯淀粉、盐、大蒜粉、氯化钾、调味剂（INS 621、INS 631）。
+
+如果需要更详细的信息，请告诉我！",partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""partial"",
+  ""error_type"": ""incomplete"",
+  ""notes"": ""The model answer provides some ingredients but is missing key components such as the specific percentages and additional ingre",high
+case_018,Skippy Peanut butter Creamy 的成分是什么？,"CACAHUÈTES GRILLÉES (ARACHIDES) 91%, SUCRE, HUILE DE COLZA, HUILE DE COTON, SEL.",抱歉，我没有找到 Skippy Peanut Butter Creamy 的成分信息。请确认产品名称或品牌是否正确。,partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""proper_refusal"",
+  ""error_type"": ""retrieval_miss"",
+  ""notes"": ""The model correctly refused to provide information it could not retrieve, but it should have included the expected ",high
+case_019,MEXT Japan ＜調味料類＞ （調味ソース類） ぽん酢しょうゆ 市販品 的成分是什么？,＜調味料類＞ （調味ソース類） ぽん酢しょうゆ 市販品,抱歉，我没有找到MEXT Japan品牌的“ぽん酢しょうゆ”的具体成分信息。可能是该产品的成分未在数据库中记录。请确认产品名称或品牌是否正确，或者尝试其他产品。,partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""proper_refusal"",
+  ""error_type"": ""retrieval_miss"",
+  ""notes"": ""The model correctly refused to provide information due to lack of data on the specific product."",
+  ""review_priorit",high
+case_020,Lundberg Jasmine Rice 的成分是什么？,"Water, Regenerative Organic Certified® White Jasmine Rice",Lundberg Jasmine Rice 的成分是：水，经过再生有机认证的白色茉莉香米。,partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""correct"",
+  ""error_type"": ""none"",
+  ""notes"": ""The model answer accurately reflects the expected key facts."",
+  ""review_priority"": ""low""
+}
+```",high
+case_021,Tesco Scottish Oats 的成分是什么？,Rolled oat flakes,Tesco Scottish Oats 的成分是：滚压燕麦片。,partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""correct"",
+  ""error_type"": ""none"",
+  ""notes"": ""The model answer accurately translates 'rolled oat flakes' to '滚压燕麦片'."",
+  ""review_priority"": ""low""
+}
+```",high
+case_022,Plein Fruit Jus de Pomme de Bretagne 的成分是什么？,Jus de pomme à base de concentré.,Plein Fruit Jus de Pomme de Bretagne 的成分是：浓缩苹果汁。,partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""correct"",
+  ""error_type"": ""none"",
+  ""notes"": ""The model answer accurately reflects the expected key fact about the product's ingredients."",
+  ""review_priority"": ""low""
+}
+```",high
+case_023,"Health Canada Gravy, beef, dehydrated, prepared with water 的成分是什么？","Gravy, beef, dehydrated, prepared with water / Sauce, boeuf, déshydratée, préparée avec de l'eau","根据查询结果，Health Canada 的肉汁成分如下：
+
+- **产品名称**：Gravy, au jus, canned
+- **品牌**：Health Canada
+- **成分**：Gravy, au jus, canned / Sauce, au jus, conserve
+
+如果您需要更详细的信息或有其他问题，请告诉我！",partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""wrong"",
+  ""error_type"": ""retrieval_miss"",
+  ""notes"": ""The model answer provides incorrect product information and does not match the expected key facts."",
+  ""review_priority"": ""h",high
+case_024,MEXT Japan （すもも類） プルーン 乾 的成分是什么？,（すもも類） プルーン 乾,"根据查询结果，MEXT Japan（すもも類）プルーン的成分信息如下：
+
+- 产品名称：MEXT Japan（すもも類）にほんすもも 生
+- 成分：该产品的成分信息为空。
+
+因此，无法提供具体的成分信息。请注意，可能需要查看产品包装或官方网站以获取更详细的信息。",partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""wrong"",
+  ""error_type"": ""retrieval_miss"",
+  ""notes"": ""The model answer provides incorrect product information and states that the ingredient information is empty, which does not ",high
+case_025,MEXT Japan ぜんまい 生ぜんまい 若芽 ゆで 的成分是什么？,ぜんまい 生ぜんまい 若芽 ゆで,"根据查询结果，MEXT Japan 的“ぜんまい 干しぜんまい 干し若芽 ゆで”的成分为：
+
+- ぜんまい
+- 干しぜんまい
+- 干し若芽
+- ゆで
+
+该产品没有标明过敏原。建议可以食用。",partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""partial"",
+  ""error_type"": ""retrieval_miss"",
+  ""notes"": ""The model answer includes '干しぜんまい' and '干し若芽', which are not part of the expected key facts. The expected facts were not f",high
+case_026,"Carrefour,Carrefour Extra Tomates séchées au soleil 的成分是什么？","Tomates séchées 59%, huile de tournesol 36%, ail, sel, vinaigre de vin (contient _sulfites_), origan 0,2%, poivre noir, acidifiant : acide lactique, antioxydant : acide ascorbique.",抱歉，我没有找到“Carrefour Extra Tomates séchées au soleil”的成分信息。请确认产品名称是否正确，或者提供其他产品名称。,partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""wrong"",
+  ""error_type"": ""retrieval_miss"",
+  ""notes"": ""The model failed to provide the expected ingredient information for the specified product."",
+  ""review_priority"": ""high""
+}
+`",high
+case_027,Heinz Mayonnaise Light 的成分是什么？,"water, rapeseed oil (25%), starch, pasteurised free range egg (3.5%), spirit vinegar, sugar, salt, pasteurised free range egg yolk (1%), lemon juice concentrate, preservative (pota",Heinz Mayonnaise Light 的成分是：水、菜籽油（25%）、淀粉、巴氏杀菌的自由放养鸡蛋（3.5%）、食醋、糖、盐、巴氏杀菌的自由放养蛋黄（1%）、浓缩柠檬汁、防腐剂（山梨酸钾）、芥末种子、香料、抗氧化剂（乙二胺四乙酸钙钠）。,partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""partial"",
+  ""error_type"": ""incomplete"",
+  ""notes"": ""The model answer includes additional ingredients (mustard seeds, spices, antioxidants) that are not part of the expected key f",high
+case_028,La Vie Claire Sauce SHOYU au soja et au blé 的成分是什么？,"eau, - soja - jaune (30%), sel, - blé - complet (7%)",La Vie Claire Sauce SHOYU au soja et au blé 的成分是：水、黄豆（30%）、盐、全麦（7%）。,partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""correct"",
+  ""error_type"": ""none"",
+  ""notes"": ""The model answer accurately lists the ingredients in both Chinese and French, matching the expected key facts."",
+  ""review_priority""",high
+case_029,Snacks of The World Hot mix spicy 的成分是什么？,"72% cacahuète, 14% riz, huile végétale (tournesol, colza), amidon (pomme de terre, maïs, blé), farine (blé, riz, maïs), sucre, sauce soja (sauce soja [eau, fèves de soja, blé, sel]",Snacks of The World Hot mix spicy 的成分是：72% 花生，14% 大米，植物油（葵花籽油，菜籽油），淀粉（马铃薯，玉米，小麦），面粉（小麦，大米，玉米），糖，酱油（酱油[水，黄豆，小麦，盐]，果糖浆），盐，香料混合（辣椒，红椒粉，小麦粉，着色剂[提取物]）。,partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""partial"",
+  ""error_type"": ""incomplete"",
+  ""notes"": ""The model answer includes additional ingredients (果糖浆, 盐, 香料混合) that are not part of the expected key facts, and it omits some",high
+case_030,Milka Strawberry 的成分是什么？,"sugar, palm oil, whey powder (from milk), cocoa butter, skimmed milk powder, cocoa mass, milk fat, emulsifiers (soy lecithins, sunflower lecithins), dextrose, flavors, hazelnut pas",Milka Strawberry 的成分是：糖、棕榈油、乳清粉（来自牛奶）、可可脂、脱脂奶粉、可可固形物、乳脂、乳化剂（大豆卵磷脂、向日葵卵磷脂）、葡萄糖、香料、榛子酱、干草莓（0.2%）、麦芽糊精、酸度调节剂（柠檬酸）。,partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""partial"",
+  ""error_type"": ""incomplete"",
+  ""notes"": ""The model answer includes additional ingredients (dried strawberries, maltodextrin, acidity regulator) that are not part of th",high
+case_031,Carrefour Tortillas chips nature 的成分是什么？,"Farine de maïs 79,3%, huile de tournesol, sel 0,7%.",Carrefour Tortillas chips nature 的成分是：玉米粉 79.3%，葵花籽油，盐 0.7%。,partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""correct"",
+  ""error_type"": ""none"",
+  ""notes"": ""The model answer accurately reflects the expected key facts regarding the ingredients of Carrefour Tortillas chips nature."",
+  ""revi",high
+case_032,Sun quench Sun Quemch 50% Hi Juice Apple 的成分是什么？,"apple juice from concentrate (50%), water, acid: malic acid, preservatives: potassium sorbate, sodium metabisulphite, acidity regulator: sodium citrates, sweeteners: acesulfame k, ",抱歉，我没有找到关于“Sun quench Sun Quemch 50% Hi Juice Apple”的成分信息。请确认产品名称或品牌是否正确。,partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""proper_refusal"",
+  ""error_type"": ""retrieval_miss"",
+  ""notes"": ""The model correctly refused to provide information due to lack of data, but it could have included a suggestion to ",high
+case_033,Marks And Spencer Sundried tomatoes 的成分是什么？,"Sundried Tomatoes 47%, Olive Oil, Salt, White Wine Vinegar, Acidity Regulator (Citric Acid), Garlic, Basil, Sugar Dried Oregano, Ground Black Pepper",Marks And Spencer Sundried tomatoes 的成分是：日晒番茄 47%、橄榄油、盐、白葡萄酒醋、酸度调节剂（柠檬酸）、大蒜、罗勒、糖、干牛至、黑胡椒。,partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""correct"",
+  ""error_type"": ""none"",
+  ""notes"": ""The model answer accurately lists the ingredients of Marks And Spencer Sundried tomatoes in both English and Chinese."",
+  ""review_pr",high
+case_034,MEXT Japan ＜畜肉類＞ うし ［和牛肉］ かた 脂身つき 生 的成分是什么？,＜畜肉類＞ うし ［和牛肉］ かた 脂身つき 生,"该产品的成分为：＜畜肉類＞ うし ［和牛肉］ かた 脂身つき 生。根据查询结果，该产品没有标明过敏原。
+
+建议：可以食用。",partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""correct"",
+  ""error_type"": ""none"",
+  ""notes"": ""The model answer correctly identifies the key facts and provides a clear statement regarding allergens."",
+  ""review_priority"": ""low""",high
+case_035,"Health Canada Turkey, all classes, drumstick, meat only, raw 的成分是什么？","Turkey, all classes, drumstick, meat only, raw / Dinde, toutes catégories, pilon, viande seulement, cru",根据查询结果，Health Canada 的火鸡（所有类别，生肉和皮）成分为：火鸡肉和皮。,partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""partial"",
+  ""error_type"": ""incomplete"",
+  ""notes"": ""The model answer includes skin, which is not part of the expected key facts that specify 'meat only'."",
+  ""review_priority"": """,high
+case_036,Connétable Sardines à l'huile d'olive vierge extra 的成分是什么？,"_Sardines_ (Sardina pilchardus), huile d'olive vierge extra, sel (zone de pêche indiquée sur la tranche)",Agent stopped due to max iterations.,partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""wrong"",
+  ""error_type"": ""timeout_or_iteration"",
+  ""notes"": ""The model did not provide any relevant information about the ingredients of Connétable Sardines à l'huile d'olive vier",high
+case_037,Cauldron Authentic Tofu 的成分是什么？,"Water, _Soybeans_ 35.8%, Firming Agent (Calcium Sulphate).",Cauldron Authentic Tofu 的成分是：水，35.8% 大豆，凝固剂（硫酸钙）。,partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""correct"",
+  ""error_type"": ""none"",
+  ""notes"": ""The model answer accurately lists the ingredients of Cauldron Authentic Tofu."",
+  ""review_priority"": ""low""
+}
+```",high
+case_038,Danone Dan up 的成分是什么？,"milk without whipped cream, milk powder without whipped cream, milky proteins, whipped cream, butter, coagulant (starch), flavor, yeast for yogurt,",丹麦 Dan up 的成分是：牛奶（不含奶油）、奶粉（不含奶油）、乳制品蛋白、奶油、黄油、凝固剂（淀粉）、香料、酸奶用酵母。,partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""correct"",
+  ""error_type"": ""none"",
+  ""notes"": ""The model answer accurately lists the ingredients of Danone Dan up."",
+  ""review_priority"": ""low""
+}
+```",high
+case_039,"Health Canada Chicken, broiler, wing, meat, roasted 的成分是什么？","Chicken, broiler, wing, meat, roasted / Poulet à griller, aile, viande, rôti",根据查询结果，Health Canada 的鸡肉（broiler chicken）成分为：鸡肉（生肉）。,partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""wrong"",
+  ""error_type"": ""retrieval_miss"",
+  ""notes"": ""The model answer does not provide the expected key facts about the composition of roasted broiler chicken."",
+  ""review_prior",high
+case_040,"Health Canada Sausage, breakfast links or rounds, turkey, cooked 的成分是什么？","Sausage, breakfast links or rounds, turkey, cooked / Saucisse à déjeuner, en chapelet ou en galette, dinde, cuite","我没有找到关于“Health Canada Sausage, breakfast links or rounds, turkey, cooked”的具体成分信息。找到的相关产品是“烟熏香肠，含切达奶酪，预煮，低脂”。其成分为：
+
+- 烟熏香肠，含切达奶酪，预煮，低脂
+
+如果您需要更详细的信息或其他产品，请告诉我！",partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""wrong"",
+  ""error_type"": ""retrieval_miss"",
+  ""notes"": ""The model did not provide the expected key facts about the specific product requested and instead provided information about",high
+case_041,"Health Canada Cheese, cheddar or colby type, low sodium 的成分是什么？","Cheese, cheddar or colby type, low sodium / Fromage, type cheddar ou colby, faible en sodium","该产品“Health Canada Cheese, cheddar or colby type, low sodium”的成分是：
+
+**切达或科尔比奶酪，低钠**。",partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""partial"",
+  ""error_type"": ""incomplete"",
+  ""notes"": ""The model answer provides a partial translation but does not include the English term 'Cheese, cheddar or colby type, low sodi",high
+case_042,MEXT Japan ＜貝類＞ あさり 生 的成分是什么？,＜貝類＞ あさり 生,该产品“＜貝類＞ あさり 缶詰 味付け”没有列出具体的过敏原信息。建议在食用前确认是否对贝类过敏。,partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""partial"",
+  ""error_type"": ""retrieval_miss"",
+  ""notes"": ""The model answer does not provide the specific ingredient information for 'あさり 生' as requested, and instead refers to a ca",high
+case_043,"Ajinomoto,Oyakata Nouilles de blé poulet teriyaki 的成分是什么？","Nouilles instantanées 76,5% [farine de BLE, huile de palme, amidon modifié, sel, poutres à lever: carbonate de sodium, carbonate de potassium), sauce liquide 20% [sauce SOJA 41% a ","Ajinomoto Oyakata 鸡肉照烧面的成分如下：
+
+- 小麦面条
+- 鸡肉
+- 照烧酱
+- 调味料
+- 其他配料
+
+请注意，具体成分可能会有所不同，建议查看包装上的成分表以获取最新信息。",partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""partial"",
+  ""error_type"": ""incomplete"",
+  ""notes"": ""The model answer provides a general overview of the ingredients but lacks specific details and percentages as expected."",
+  ""r",high
+case_044,Lidl Crocos 的成分是什么？,"Sirop de glucose, sucre, gélatine, acidifiants: acide citrique, acide lactique, humectant : sorbitols, arômes naturels, concentrés de fruits et plantes à propriété colorante : caro",Lidl Crocos 的成分是：葡萄糖浆、糖、明胶、酸度调节剂（柠檬酸、乳酸）、保湿剂（山梨醇）、天然香料、果蔬浓缩物（胡萝卜、黑加仑、螺旋藻、红花）、苹果、萝卜、椰子油、包衣剂（巴西棕榈蜡）等。,partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""wrong"",
+  ""error_type"": ""retrieval_miss"",
+  ""notes"": ""The model answer includes incorrect ingredients that are not part of the expected key facts."",
+  ""review_priority"": ""high""
+}",high
+case_045,"Health Canada Spices, mace, ground 的成分是什么？","Spices, mace, ground / Épices, macis, moulu","根据查询结果，Health Canada 的香料成分为：
+
+- **成分**：香料、干香菜叶（香菜）
+
+该产品没有列出过敏原。",partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""partial"",
+  ""error_type"": ""incomplete"",
+  ""notes"": ""The model answer does not include 'mace' and provides additional ingredients that were not part of the expected key facts."",
+ ",high
+case_046,KOKA® Instant noodles 的成分是什么？,"nouilles 74g (farine de blé tendre, huile de palme, sel) sauce d'assaisonement 11g (sel, exhausteur de gout E621, arôme de homard artificiel, épices)",抱歉，我没有找到 KOKA® Instant noodles 的成分信息。请确认产品名称或品牌是否正确。,partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""proper_refusal"",
+  ""error_type"": ""retrieval_miss"",
+  ""notes"": ""The model correctly refused to provide information it could not retrieve, but it should have included a note about ",high
+case_047,Mars Mars 的成分是什么？,"Zucker, Glukosesirup, Magermilchpulver, Kakaobutter, Kakaomasse Sonnenblumenöl, Molkepermeat (Milch), Palmfett, Butterreinfett (Milch), fettarme Kakaopulver, Gerstenmalzextrakt, Sa",Mars x10 的成分是：糖、葡萄糖浆、脱脂可可粉、大麦麦芽提取物、盐、乳化剂（大豆卵磷脂）、蛋白粉。（可能含有：花生、果仁、可可脂、可可块、葵花籽油、乳清蛋白（牛奶）、棕榈油、奶油等。）,partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""partial"",
+  ""error_type"": ""incomplete"",
+  ""notes"": ""The model answer includes some correct ingredients but misses several key ingredients listed in the expected key facts."",
+  ""r",high
+case_048,"Health Canada Shortening, industrial, for baking (cake), canola 的成分是什么？","Shortening, industrial, for baking (cake), canola / Shortening, industriel, pour cuisson (gâteau), canola","根据查询结果，Health Canada 的工业酥油（用于烘焙蛋糕，菜籽油）的成分是：
+
+- 工业酥油（用于烘焙蛋糕，菜籽油）
+
+如果您有其他问题或需要更多信息，请告诉我！",partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""partial"",
+  ""error_type"": ""incomplete"",
+  ""notes"": ""The model answer provides the main component but does not include the expected bilingual format."",
+  ""review_priority"": ""mediu",high
+case_049,"Health Canada Hot chocolate, low calorie, with aspartame, mix, powder, with added calcium and phosphorus, without added sodium or vitamin A 的成分是什么？","Hot chocolate, low calorie, with aspartame, mix, powder, with added calcium and phosphorus, without added sodium or vitamin A / Chocolat chaud, hypocalorique, avec aspartame, mélan",我没有找到与“Health Canada 热巧克力”相关的产品信息。请确认产品名称或品牌是否正确。,partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""wrong"",
+  ""error_type"": ""retrieval_miss"",
+  ""notes"": ""The model failed to provide the expected key facts about the product and instead stated that it could not find relevant info",high
+case_050,Jomo JOMO Pêche hibiscus 的成分是什么？,"Infusion de thé blanc* et d'hibiscus* 90% (eau, infusion de thé blanc*, infusion d'hibiscus*), sucre* (dont 64% issu de fruits*), purée de pêche* 3,6%, jus de citron* 2%, arôme nat","Jomo JOMO Pêche hibiscus 的成分是：
+
+- 白茶和洛神花的浸泡液 90%（水、白茶浸泡液、洛神花浸泡液）
+- 糖（其中64%来自水果）
+- 桃子泥 3.6%
+- 柠檬汁 2%
+- 自然桃子香料
+- 自然茶香料
+- 抗氧化剂：抗坏血酸
+
+如果你有其他问题，请随时问我！",partial,other,"json_parse_failed: ```json
+{
+  ""label"": ""partial"",
+  ""error_type"": ""incomplete"",
+  ""notes"": ""The model answer includes additional ingredients (natural peach flavor, natural tea flavor, and antioxidant: ascorbic acid) th",high

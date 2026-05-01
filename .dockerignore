@@ -1,0 +1,14 @@
+.git
+.gitignore
+.venv
+venv
+__pycache__
+*.py[cod]
+*.egg-info
+.env
+.env.*
+frontend/node_modules
+frontend/.next
+RediSearch
+**/agent-transcripts
+**/.cursor

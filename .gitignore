@@ -1,8 +1,19 @@
-# Environment
+# 上游独立仓库（本地 clone 参考用，勿作为嵌套 git 提交）
+RediSearch/
+
+# Environment & secrets（勿提交到 GitHub）
 .env
+.env.*
+!.env.example
 *.pyc
 __pycache__/
+# Python 虚拟环境（任意目录名）
+.venv/
+venv/
+env/
+ENV/
 foodvenv/
+.virtualenv/
 
 # IDE
 .vscode/

@@ -2,6 +2,8 @@ import os
 import time
 import base64
 import hashlib
+import re
+from functools import lru_cache
 import streamlit as st
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
@@ -9,6 +11,8 @@ from langchain_community.utilities import SQLDatabase
 from langchain_community.agent_toolkits import create_sql_agent
 from langchain_core.prompts import MessagesPlaceholder
 from langchain_core.messages import HumanMessage
+from sqlalchemy import text
+from db import get_engine, get_langchain_db
 
 # 修复导入：在当前环境下 ConversationBufferMemory 位于 langchain_classic
 try:
@@ -21,7 +25,7 @@ except ImportError:
 
 from langchain_community.chat_message_histories import StreamlitChatMessageHistory
 
-load_dotenv()
+load_dotenv(override=True)
 
 # --- 1. 全局配置与行为准则 ---
 SQL_SYSTEM_PREFIX = """你是一个严谨的食品过敏专家。你必须**快速高效**地完成查询。
@@ -108,7 +112,7 @@ WHERE brand = 'Lee Kum Kee'
 @st.cache_resource
 def get_db():
     """缓存数据库连接和表结构信息"""
-    return SQLDatabase.from_uri("sqlite:///data/food_data.db")
+    return get_langchain_db()
 
 
 @st.cache_resource
@@ -170,14 +174,56 @@ def init_sql_cache():
         st.session_state.vision_cache = {}
 
 
+@lru_cache(maxsize=1)
+def ensure_products_norm_schema():
+    """Ensure normalized helper columns and indexes exist."""
+    engine = get_engine()
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE products ADD COLUMN IF NOT EXISTS canonical_brand TEXT"))
+            conn.execute(text("ALTER TABLE products ADD COLUMN IF NOT EXISTS canonical_name TEXT"))
+            conn.execute(text("ALTER TABLE products ADD COLUMN IF NOT EXISTS lang_tag TEXT"))
+            conn.execute(text("ALTER TABLE products ADD COLUMN IF NOT EXISTS ingredients_len INTEGER"))
+
+            conn.execute(
+                text(
+                    """
+                    UPDATE products
+                    SET
+                        canonical_brand = lower(regexp_replace(coalesce(brand,''), '[^a-z0-9\\u4e00-\\u9fff]+', '', 'g')),
+                        canonical_name = lower(regexp_replace(coalesce(name,''), '[^a-z0-9\\u4e00-\\u9fff]+', '', 'g')),
+                        lang_tag = CASE
+                            WHEN ingredients ~ '[\\u4e00-\\u9fff]' THEN 'zh'
+                            WHEN ingredients ~ '[A-Za-z]' THEN 'en'
+                            ELSE 'other'
+                        END,
+                        ingredients_len = length(coalesce(ingredients, ''))
+                    WHERE canonical_brand IS NULL
+                       OR canonical_name IS NULL
+                       OR lang_tag IS NULL
+                       OR ingredients_len IS NULL
+                    """
+                )
+            )
+
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS idx_products_canonical_brand_name ON products(canonical_brand, canonical_name)"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS idx_products_canonical_brand_lang ON products(canonical_brand, lang_tag)"
+                )
+            )
+    except Exception as e:
+        print(f"  ⚠️ 规范化字段初始化失败，回退旧查询: {e}")
+
+
 def direct_sql_query(brand: str, product_keywords: str, query_type: str = "image"):
     """🚀 快速路径：直接执行 SQL，绕过 Agent（速度提升 5-10倍）"""
-    from langchain_community.utilities import SQLDatabase
-    import sqlite3
-
-    # 直接使用 sqlite3，不用 LangChain（更快）
-    conn = sqlite3.connect("data/food_data.db")
-    cursor = conn.cursor()
+    engine = get_engine()
+    ensure_products_norm_schema()
 
     # 自动生成中英文关键词对
     keyword_mapping = {
@@ -200,45 +246,129 @@ def direct_sql_query(brand: str, product_keywords: str, query_type: str = "image
                 break
 
     # 构造 OR 查询
-    name_conditions = " OR ".join([f"name LIKE ?" for _ in keywords])
-    params = [f"%{kw}%" for kw in keywords]
+    name_conditions = " OR ".join([f"name ILIKE :kw_{i}" for i in range(len(keywords))])
+    params = {f"kw_{i}": f"%{kw}%" for i, kw in enumerate(keywords)}
+    params["brand"] = brand
+    params["brand_norm"] = re.sub(r"[^a-z0-9\u4e00-\u9fff]+", "", (brand or "").lower())
+    params["target_lang"] = "zh" if re.search(r"[\u4e00-\u9fff]", product_keywords or "") else "en"
 
     try:
         if query_type == "image":
             # 查询图片
             sql = f"""
-            SELECT name, brand, image_url 
-            FROM products 
-            WHERE brand = ? 
-              AND ({name_conditions}) 
-              AND image_url IS NOT NULL 
-              AND image_url != ''
+            WITH ranked AS (
+                SELECT
+                    name, brand, image_url,
+                    row_number() OVER (
+                        PARTITION BY canonical_brand, canonical_name
+                        ORDER BY
+                            CASE
+                                WHEN lang_tag = :target_lang THEN 0
+                                WHEN lang_tag = 'en' THEN 1
+                                ELSE 2
+                            END,
+                            ingredients_len DESC
+                    ) AS rn
+                FROM products
+                WHERE canonical_brand = :brand_norm
+                  AND ({name_conditions})
+                  AND image_url IS NOT NULL
+                  AND image_url != ''
+            )
+            SELECT name, brand, image_url
+            FROM ranked
+            WHERE rn = 1
             LIMIT 1
             """
             print(f"  📝 执行SQL: {sql}")
-            print(f"  📝 参数: {[brand] + params}")
-            cursor.execute(sql, [brand] + params)
+            print(f"  📝 参数: {params}")
+            with engine.connect() as conn:
+                result = conn.execute(text(sql), params).first()
+            if result is None:
+                legacy_sql = f"""
+                SELECT name, brand, image_url
+                FROM products
+                WHERE brand = :brand
+                  AND ({name_conditions})
+                  AND image_url IS NOT NULL
+                  AND image_url != ''
+                LIMIT 1
+                """
+                with engine.connect() as conn:
+                    result = conn.execute(text(legacy_sql), params).first()
         else:
             # 查询过敏原（优先返回内容最详细的）
             sql = f"""
-            SELECT name, brand, ingredients, allergens 
-            FROM products 
-            WHERE brand = ? 
-              AND ({name_conditions}) 
-              AND ingredients != ''
-            ORDER BY length(ingredients) DESC
+            WITH ranked AS (
+                SELECT
+                    name, brand, ingredients, allergens,
+                    row_number() OVER (
+                        PARTITION BY canonical_brand, canonical_name
+                        ORDER BY
+                            CASE
+                                WHEN lang_tag = :target_lang THEN 0
+                                WHEN lang_tag = 'en' THEN 1
+                                ELSE 2
+                            END,
+                            ingredients_len DESC
+                    ) AS rn
+                FROM products
+                WHERE canonical_brand = :brand_norm
+                  AND ({name_conditions})
+                  AND ingredients != ''
+            )
+            SELECT name, brand, ingredients, allergens
+            FROM ranked
+            WHERE rn = 1
             LIMIT 1
             """
             print(f"  📝 执行SQL: {sql}")
-            print(f"  📝 参数: {[brand] + params}")
-            cursor.execute(sql, [brand] + params)
-
-        result = cursor.fetchone()
-        conn.close()
+            print(f"  📝 参数: {params}")
+            with engine.connect() as conn:
+                result = conn.execute(text(sql), params).first()
+            if result is None:
+                legacy_sql = f"""
+                SELECT name, brand, ingredients, allergens
+                FROM products
+                WHERE brand = :brand
+                  AND ({name_conditions})
+                  AND ingredients != ''
+                ORDER BY length(ingredients) DESC
+                LIMIT 1
+                """
+                with engine.connect() as conn:
+                    result = conn.execute(text(legacy_sql), params).first()
         return result  # 返回元组或 None
     except Exception as e:
-        conn.close()
         print(f"  ❌ SQL查询失败: {e}")
+        # 兼容：若规范化列尚未就绪，回退旧查询
+        try:
+            legacy_sql = ""
+            if query_type == "image":
+                legacy_sql = f"""
+                SELECT name, brand, image_url
+                FROM products
+                WHERE brand = :brand
+                  AND ({name_conditions})
+                  AND image_url IS NOT NULL
+                  AND image_url != ''
+                LIMIT 1
+                """
+            else:
+                legacy_sql = f"""
+                SELECT name, brand, ingredients, allergens
+                FROM products
+                WHERE brand = :brand
+                  AND ({name_conditions})
+                  AND ingredients != ''
+                ORDER BY length(ingredients) DESC
+                LIMIT 1
+                """
+            with engine.connect() as conn:
+                legacy = conn.execute(text(legacy_sql), params).first()
+            return legacy
+        except Exception:
+            pass
         return None
 
 
@@ -257,6 +387,13 @@ def query_text(question: str, image_bytes: bytes = None):
 
     # 获取目标语言设置
     target_lang = st.session_state.get("target_language", "自动识别 (Auto)")
+
+    # [强制中文补丁] 如果用户用中文提问且设置为自动识别，强制后续回复使用中文
+    if target_lang == "自动识别 (Auto)":
+        import re
+        if re.search("[\u4e00-\u9fa5]", question):
+            target_lang = "简体中文"
+            print("  🇨🇳 检测到中文提问，自动切换回复语言为简体中文")
 
     # 🚀 快速路径检测：如果是简单的图片查询，直接执行 SQL
     quick_brands = {

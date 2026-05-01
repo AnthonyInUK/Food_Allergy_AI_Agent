@@ -1,0 +1,30 @@
+# 生产用 FastAPI 镜像（与根目录 Dockerfile 的 Streamlit/HF 入口分离）
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libgl1 \
+    libglib2.0-0 \
+    git-lfs \
+    sqlite3 \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN git lfs install
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+RUN if [ ! -f "data/food_data.db" ]; then echo "WARNING: food_data.db not found"; fi && \
+    if [ ! -d "data/chroma_db" ]; then echo "WARNING: chroma_db directory not found"; fi
+
+ENV PYTHONUNBUFFERED=1
+
+EXPOSE 8000
+
+# 生产勿用 --reload；worker 数可用 UVICORN_WORKERS 覆盖
+CMD ["sh", "-c", "exec uvicorn api_server:app --host 0.0.0.0 --port 8000 --workers ${UVICORN_WORKERS:-2}"]

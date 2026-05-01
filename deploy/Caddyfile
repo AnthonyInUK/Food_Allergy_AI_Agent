@@ -1,0 +1,25 @@
+# Caddy 2：自动 HTTPS（Let's Encrypt）。环境变量由 docker-compose.prod 注入。
+# 必填：PUBLIC_DOMAIN（如 app.example.com）、ACME_EMAIL（Let's Encrypt 账号）
+# PUBLIC_API_URL 应与浏览器访问的 API 源一致，例如 https://app.example.com
+
+{
+	email {$ACME_EMAIL}
+}
+
+{$PUBLIC_DOMAIN} {
+	encode gzip
+
+	@api path_prefix /api
+	handle @api {
+		reverse_proxy api:8000
+	}
+
+	@ws path_prefix /ws
+	handle @ws {
+		reverse_proxy api:8000
+	}
+
+	handle {
+		reverse_proxy frontend:3000
+	}
+}

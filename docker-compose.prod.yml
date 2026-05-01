@@ -1,0 +1,119 @@
+# 生产编排：Caddy 终止 TLS；内部 api + frontend + redis + postgres（结构化数据统一 PG）
+# 用法见 deploy/README.md
+#
+# 准备 .env（可复制 .env.example 并补全）至少包含：
+#   OPENAI_API_KEY, TAVILY_API_KEY, PUBLIC_DOMAIN, PUBLIC_API_URL, ACME_EMAIL, CORS_ALLOW_ORIGINS
+#   DATABASE_URL（默认已指向 compose 内 postgres 服务名 postgres）
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-food_ai}
+    expose:
+      - "5432"
+    volumes:
+      - foodai_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    networks:
+      - app-network
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      PYTHONUNBUFFERED: "1"
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://postgres:postgres@postgres:5432/food_ai}
+      ENABLE_PG_CONVERSATION_CHECKPOINT: ${ENABLE_PG_CONVERSATION_CHECKPOINT:-true}
+    expose:
+      - "8000"
+    volumes:
+      - foodai_data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=5).read()",
+        ]
+      interval: 30s
+      timeout: 8s
+      retries: 5
+      start_period: 120s
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL}
+    restart: unless-stopped
+    expose:
+      - "3000"
+    environment:
+      NODE_ENV: production
+    depends_on:
+      - api
+    networks:
+      - app-network
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    expose:
+      - "6379"
+    volumes:
+      - foodai_redis:/data
+    networks:
+      - app-network
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+      - frontend
+    networks:
+      - app-network
+
+volumes:
+  foodai_data:
+  foodai_pg:
+  foodai_redis:
+  caddy_data:
+  caddy_config:
+
+networks:
+  app-network:
+    driver: bridge

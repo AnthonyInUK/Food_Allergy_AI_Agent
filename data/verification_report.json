@@ -1,0 +1,64 @@
+{
+  "summary": {
+    "total_products": 29523,
+    "cleaning": {
+      "brand_normalized": 7109,
+      "allergen_format_fixed": 422,
+      "name_quality": {
+        "OK": 25399,
+        "ALL_LOWER": 693,
+        "ALL_CAPS": 3120,
+        "MISSING": 290,
+        "NUMERIC_ONLY": 21
+      }
+    },
+    "completeness_score_distribution": {
+      "100-119": 8826,
+      "20-39": 8,
+      "40-59": 3136,
+      "60-79": 8688,
+      "80-99": 8865
+    },
+    "verification": {
+      "total_verified": 414,
+      "not_found_in_source": 57,
+      "field_mismatch": 1
+    },
+    "by_source": {
+      "OFF": {
+        "total": 21298,
+        "verified_sample": 200,
+        "found": 14,
+        "mismatch": 1
+      },
+      "USDA": {
+        "total": 57,
+        "verified_sample": 57,
+        "found": 0,
+        "mismatch": 0
+      },
+      "CNF": {
+        "total": 5690,
+        "verified_sample": 200,
+        "found": 200,
+        "mismatch": 0
+      },
+      "JPN_GOV": {
+        "total": 2478,
+        "verified_sample": 200,
+        "found": 200,
+        "mismatch": 0
+      }
+    }
+  },
+  "mismatch_details": [
+    {
+      "id": "5287616030118",
+      "source": "OFF",
+      "name": "Miso Ramen Bowl",
+      "issues": [
+        "name: 'Miso Ramen Bowl' ≠ 'Miso  Ramen Bowl'"
+      ]
+    }
+  ]
+}

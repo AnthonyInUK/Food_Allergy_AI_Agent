@@ -29,7 +29,7 @@ A sophisticated AI-powered assistant built with **LangGraph** and **RAG architec
 
 *   **Orchestration**: LangChain, LangGraph
 *   **Inference Engine**: GPT-4o (Reasoning & Vision)
-*   **Databases**: SQLite (Structured), ChromaDB (Vector)
+*   **Databases**: PostgreSQL (Structured), ChromaDB (Vector)
 *   **Interface**: Streamlit
 *   **Connectivity**: Tavily Search API
 *   **Deployment**: Docker, Hugging Face Spaces
@@ -52,6 +52,46 @@ Create a `.env` file in the root directory:
 ```text
 OPENAI_API_KEY=your_openai_key
 TAVILY_API_KEY=your_tavily_key
+# Optional: store important QA snapshots in Redis (TTL default: 3 days)
+REDIS_URL=redis://localhost:6379/0
+IMPORTANT_DATA_TTL_SECONDS=259200
+DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/food_ai
+
+# Unified runtime toggles
+ENABLE_RESPONSE_CACHE=true
+ENABLE_REDIS_RESPONSE_CACHE=true
+ENABLE_IMPORTANT_QA_REDIS=true
+ENABLE_PG_CONVERSATION_CHECKPOINT=true
+ENABLE_NODE_RETRY=true
+NODE_RETRY_MAX_ATTEMPTS=3
+NODE_RETRY_INITIAL_INTERVAL=0.5
+NODE_RETRY_BACKOFF_FACTOR=2.0
+NODE_RETRY_MAX_INTERVAL=8.0
+
+# Retrieval/indexing knobs (for large dataset chunking strategy)
+VECTOR_TOP_K=5
+VECTOR_CHUNK_SIZE=800
+VECTOR_CHUNK_OVERLAP=120
+
+# Optional: CLIP-style image retrieval (Chroma collection `product_images`, default off)
+# After enabling, run: python scripts/index_product_images.py --limit 500
+ENABLE_IMAGE_VECTOR_RETRIEVAL=false
+CHROMA_IMAGE_COLLECTION=product_images
+CLIP_MODEL_NAME=clip-ViT-B-32
+IMAGE_VECTOR_TOP_K=5
+```
+
+### 3.1 Migrate Existing SQLite Data (Optional)
+If you already have data in `data/food_data.db`, migrate it to PostgreSQL:
+```bash
+python scripts/migrate_sqlite_to_postgres.py
+```
+
+### 3.2 Index product images for “search by photo” (Optional)
+Requires `sentence-transformers`, PostgreSQL with `products.image_url`, and `ENABLE_IMAGE_VECTOR_RETRIEVAL=true` at runtime.
+```bash
+pip install -r requirements.txt
+python scripts/index_product_images.py --limit 500
 ```
 
 ### 4. Launch Application
@@ -65,6 +105,17 @@ streamlit run main.py
 docker build -t food-agent .
 docker run -p 7860:7860 -e OPENAI_API_KEY="..." -e TAVILY_API_KEY="..." food-agent
 ```
+
+## Unified Operational Switches
+
+- Runtime toggles are centralized in `app_config.py`.
+- Query current effective toggles via `GET /api/runtime-config`.
+- You can now uniformly enable/disable:
+  - Redis response cache
+  - Redis important QA snapshot storage
+  - PostgreSQL conversation checkpoint fallback
+  - LangGraph retry policy
+- For large datasets, tune `VECTOR_CHUNK_SIZE` / `VECTOR_CHUNK_OVERLAP` / `VECTOR_TOP_K` as your indexing/query control knobs.
 
 ## Project Structure
 

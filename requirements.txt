@@ -3,10 +3,17 @@ langchain-openai
 langchain-community
 langchain-core
 langgraph
+langsmith
 tavily-python
 chromadb
 sqlalchemy
 pandas
 streamlit
+fastapi
+uvicorn[standard]
+python-multipart
 python-dotenv
 pillow
+redis
+psycopg[binary]
+sentence-transformers
