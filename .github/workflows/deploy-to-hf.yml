@@ -11,6 +11,10 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          # HF Git 拒绝浅克隆推送（remote: shallow update not allowed）
+          fetch-depth: 0
+          lfs: true
 
       - name: Set up Python
         uses: actions/setup-python@v4
