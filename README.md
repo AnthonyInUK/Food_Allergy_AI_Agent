@@ -4,6 +4,8 @@ emoji: 🥗
 colorFrom: red
 colorTo: pink
 sdk: docker
+app_port: 7860
+short_description: FastAPI backend — use Next.js frontend or /docs against this Space URL
 pinned: false
 license: mit
 ---

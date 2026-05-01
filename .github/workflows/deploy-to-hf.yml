@@ -47,3 +47,19 @@ jobs:
 
           # Force push current commit to the Space's main branch
           git push huggingface HEAD:main --force
+
+      - name: Factory reboot Space (pick up Docker / README sdk)
+        env:
+          HUGGINGFACE_TOKEN: ${{ secrets.HUGGINGFACE_TOKEN }}
+        run: |
+          python <<'PY'
+          import os
+          from huggingface_hub import HfApi
+
+          api = HfApi(token=os.environ["HUGGINGFACE_TOKEN"])
+          api.restart_space(
+              repo_id="AnthonyInBC/Food_Allergic_Agent",
+              factory_reboot=True,
+          )
+          print("restart_space(factory_reboot=True) OK")
+          PY

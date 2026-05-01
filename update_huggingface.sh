@@ -10,7 +10,7 @@ cd /Users/anthony/Desktop/llm/foodAIAgent
 # Check if huggingface remote exists
 if ! git remote | grep -q "huggingface"; then
     echo "➕ Adding HuggingFace remote..."
-    git remote add huggingface https://huggingface.co/spaces/AnthonyInBC/Anthony_space
+    git remote add huggingface https://huggingface.co/spaces/AnthonyInBC/Food_Allergic_Agent
 fi
 
 # Fetch remote changes first
@@ -38,7 +38,7 @@ git push huggingface main
 
 echo ""
 echo "✅ Update complete!"
-echo "📍 Your Space: https://huggingface.co/spaces/AnthonyInBC/Anthony_space"
+echo "📍 Your Space: https://huggingface.co/spaces/AnthonyInBC/Food_Allergic_Agent"
 echo "⏳ Build will start automatically in ~1 minute"
 
 
