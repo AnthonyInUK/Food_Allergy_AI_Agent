@@ -12,7 +12,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse, RedirectResponse
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 from sqlalchemy import text
@@ -455,12 +455,8 @@ app.add_middleware(
 
 @app.get("/")
 async def root():
-    """HF Space / 浏览器根路径：避免误以为服务未启动。"""
-    return {
-        "service": "Food Allergy AI Agent API",
-        "docs": "/docs",
-        "health": "/api/health",
-    }
+    """HF Space 根路径：聊天 UI 在独立部署的 Next.js（frontend/）；此处进入 API 文档。"""
+    return RedirectResponse(url="/docs", status_code=302)
 
 
 # ============= 对话管理端点 =============

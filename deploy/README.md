@@ -64,7 +64,7 @@ docker compose -f docker-compose.prod.yml --env-file .env up -d --build
    在 Space **Settings** 里 **Factory reboot** / 重新触发构建，或推一个新 commit 让 CI 再 `git push` 一次 Space，等 **Build** 完成后再打开 **App**。
 
 3. **当前架构**  
-   Space 上跑的是 **仅 API**；聊天 UI 在本机或别处的 **Next.js**（`NEXT_PUBLIC_API_URL` 指向该 Space 的 URL）。根路径 `/` 返回 JSON 说明，交互在 **`/docs`** 或前端里完成。
+   Space 上跑的是 **仅 API**；聊天 UI 在本机或别处的 **Next.js**（`NEXT_PUBLIC_API_URL` 指向该 Space 根 URL）。浏览器访问 `/` 会 **重定向到 `/docs`**（Swagger）；聊天页面需单独运行 `frontend/` 或部署到 Vercel 等。
 
 4. **CI 强制重建**  
    `.github/workflows/deploy-to-hf.yml` 在推送到 Space 后会调用 `restart_space(..., factory_reboot=True)`，避免 HF 长期复用旧容器里已删除的 Streamlit 镜像层。需配置仓库 Secret `HUGGINGFACE_TOKEN`（write 权限）。
