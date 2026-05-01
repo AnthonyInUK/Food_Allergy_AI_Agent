@@ -4,7 +4,6 @@ import base64
 import hashlib
 import re
 from functools import lru_cache
-import streamlit as st
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain_community.utilities import SQLDatabase
@@ -13,17 +12,6 @@ from langchain_core.prompts import MessagesPlaceholder
 from langchain_core.messages import HumanMessage
 from sqlalchemy import text
 from db import get_engine, get_langchain_db
-
-# 修复导入：在当前环境下 ConversationBufferMemory 位于 langchain_classic
-try:
-    from langchain.memory import ConversationBufferMemory
-except ImportError:
-    try:
-        from langchain_classic.memory import ConversationBufferMemory
-    except ImportError:
-        from langchain_classic.memory.buffer import ConversationBufferMemory
-
-from langchain_community.chat_message_histories import StreamlitChatMessageHistory
 
 load_dotenv(override=True)
 
@@ -109,13 +97,13 @@ WHERE brand = 'Lee Kum Kee'
 """
 
 
-@st.cache_resource
+@lru_cache(maxsize=1)
 def get_db():
     """缓存数据库连接和表结构信息"""
     return get_langchain_db()
 
 
-@st.cache_resource
+@lru_cache(maxsize=1)
 def get_llm():
     """缓存 GPT-4o 主模型（用于视觉识别和复杂推理）"""
     return ChatOpenAI(
@@ -125,7 +113,7 @@ def get_llm():
     )
 
 
-@st.cache_resource
+@lru_cache(maxsize=1)
 def get_fast_llm_for_sql():
     """缓存 GPT-4o-mini 快速模型（用于SQL查询，速度快2-3倍）"""
     return ChatOpenAI(
@@ -135,7 +123,7 @@ def get_fast_llm_for_sql():
     )
 
 
-@st.cache_resource
+@lru_cache(maxsize=1)
 def get_sql_agent():
     """缓存 SQL Agent（优化版：使用 gpt-4o-mini + 超强提示词）"""
     db = get_db()
@@ -164,14 +152,6 @@ def get_semantic_hash(text: str) -> str:
 def get_image_hash(image_bytes: bytes) -> str:
     """生成图片的哈希（用于缓存键）"""
     return hashlib.md5(image_bytes).hexdigest()
-
-
-def init_sql_cache():
-    """初始化 SQL Agent 缓存系统"""
-    if "sql_agent_cache" not in st.session_state:
-        st.session_state.sql_agent_cache = {}
-    if "vision_cache" not in st.session_state:
-        st.session_state.vision_cache = {}
 
 
 @lru_cache(maxsize=1)
@@ -378,15 +358,11 @@ def query_text(question: str, image_bytes: bytes = None):
     """
     start_time = time.time()
 
-    # 初始化缓存
-    init_sql_cache()
+    # API / CLI 模式无 Streamlit session；SQL Agent 多轮上下文由 LangGraph/前端会话承担
+    chat_history = []
 
-    # 获取当前会话的聊天历史
-    msgs = StreamlitChatMessageHistory(key="messages")
-    chat_history = msgs.messages[-10:] if len(msgs.messages) > 0 else []
-
-    # 获取目标语言设置
-    target_lang = st.session_state.get("target_language", "自动识别 (Auto)")
+    # 默认语言：可用环境变量覆盖（前端可在后续改为传参）
+    target_lang = (os.getenv("DEFAULT_REPLY_LANGUAGE") or "自动识别 (Auto)").strip()
 
     # [强制中文补丁] 如果用户用中文提问且设置为自动识别，强制后续回复使用中文
     if target_lang == "自动识别 (Auto)":

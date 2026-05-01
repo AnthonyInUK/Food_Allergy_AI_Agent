@@ -3,7 +3,6 @@ import os
 import time
 from typing import Optional
 
-import streamlit as st
 from langchain_community.chat_message_histories import RedisChatMessageHistory
 
 from app_config import get_runtime_settings
@@ -12,9 +11,9 @@ _settings = get_runtime_settings()
 IMPORTANT_DATA_TTL_SECONDS = _settings.important_data_ttl_seconds
 
 
-def _resolve_session_id() -> str:
-    conversation_id = st.session_state.get("current_conversation_id")
-    return str(conversation_id) if conversation_id else "default"
+def _resolve_session_id(conversation_id: Optional[str] = None) -> str:
+    cid = (conversation_id or os.getenv("IMPORTANT_QA_SESSION_ID") or "").strip()
+    return cid if cid else "default"
 
 
 def _get_redis_history(session_id: Optional[str] = None) -> Optional[RedisChatMessageHistory]:
@@ -24,7 +23,7 @@ def _get_redis_history(session_id: Optional[str] = None) -> Optional[RedisChatMe
     if not redis_url:
         return None
 
-    sid = session_id or _resolve_session_id()
+    sid = _resolve_session_id(session_id)
     try:
         history = RedisChatMessageHistory(
             session_id=sid,
@@ -40,9 +39,14 @@ def _get_redis_history(session_id: Optional[str] = None) -> Optional[RedisChatMe
         return None
 
 
-def record_important_qa(question: str, answer: str, source: str = "chat") -> None:
+def record_important_qa(
+    question: str,
+    answer: str,
+    source: str = "chat",
+    conversation_id: Optional[str] = None,
+) -> None:
     """将关键问答写入 RedisChatMessageHistory（TTL 默认 3 天）。"""
-    history = _get_redis_history()
+    history = _get_redis_history(session_id=conversation_id)
     if history is None:
         return
 

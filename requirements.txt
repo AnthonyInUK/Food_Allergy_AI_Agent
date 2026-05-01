@@ -8,7 +8,6 @@ tavily-python
 chromadb
 sqlalchemy
 pandas
-streamlit
 fastapi
 uvicorn[standard]
 python-multipart

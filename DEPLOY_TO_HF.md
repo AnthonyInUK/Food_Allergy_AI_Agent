@@ -4,7 +4,7 @@
 
 - ✅ README.md has HuggingFace metadata (already done)
 - ✅ requirements.txt is ready
-- ✅ .streamlit/config.toml is configured
+- ✅ 根目录 `Dockerfile` 使用 `uvicorn api_server:app` 监听 7860
 - ⚠️ Need to configure API keys as Secrets
 
 ## 🔑 Step 1: Prepare Your Repository
@@ -43,14 +43,7 @@ git push
 1. Go to https://huggingface.co/spaces/AnthonyInBC/Anthony_space
 2. Click "Files and versions"
 3. Click "Add file" → "Upload files"
-4. Drag and drop:
-   - main.py
-   - graph_logic.py
-   - agent_logic.py
-   - requirements.txt
-   - README.md
-   - .streamlit/config.toml
-   - data/ folder (if not too large)
+4. Drag and drop（示例）：`api_server.py`、`graph_logic.py`、`agent_logic.py`、`requirements.txt`、`README.md`、`Dockerfile`、`data/` 等
 
 ## 🔐 Step 3: Configure Secrets
 

@@ -452,6 +452,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.get("/")
+async def root():
+    """HF Space / 浏览器根路径：避免误以为服务未启动。"""
+    return {
+        "service": "Food Allergy AI Agent API",
+        "docs": "/docs",
+        "health": "/api/health",
+    }
+
+
 # ============= 对话管理端点 =============
 
 
@@ -643,7 +654,9 @@ async def chat(request: QueryRequest):
 
         # 记录到 Redis（后台自动持久化）
         try:
-            record_important_qa(prompt, response, source="api")
+            record_important_qa(
+                prompt, response, source="api", conversation_id=conversation_id
+            )
         except Exception as e:
             print(f"Redis persistence failed: {e}")
 
@@ -770,7 +783,9 @@ async def chat_stream(request: QueryRequest):
             )
             save_conversation(conv)
             try:
-                record_important_qa(prompt, response, source="api")
+                record_important_qa(
+                    prompt, response, source="api", conversation_id=cid
+                )
             except Exception as e:
                 print(f"Redis persistence failed: {e}")
 
@@ -954,7 +969,12 @@ async def websocket_chat(websocket: WebSocket, conversation_id: str):
 
             # 记录到 Redis
             try:
-                record_important_qa(prompt, full_response, source="websocket")
+                record_important_qa(
+                    prompt,
+                    full_response,
+                    source="websocket",
+                    conversation_id=conversation_id,
+                )
             except Exception as e:
                 print(f"Redis persistence failed: {e}")
 

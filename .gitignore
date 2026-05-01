@@ -12,6 +12,7 @@ __pycache__/
 venv/
 env/
 ENV/
+# 历史本地 venv 目录名（可删；勿提交）
 foodvenv/
 .virtualenv/
 

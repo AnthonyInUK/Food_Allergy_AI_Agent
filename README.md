@@ -30,7 +30,7 @@ A sophisticated AI-powered assistant built with **LangGraph** and **RAG architec
 *   **Orchestration**: LangChain, LangGraph
 *   **Inference Engine**: GPT-4o (Reasoning & Vision)
 *   **Databases**: PostgreSQL (Structured), ChromaDB (Vector)
-*   **Interface**: Streamlit
+*   **API**: FastAPI (`api_server.py`)；**Web UI**: Next.js (`frontend/`)
 *   **Connectivity**: Tavily Search API
 *   **Deployment**: Docker, Hugging Face Spaces
 
@@ -94,10 +94,15 @@ pip install -r requirements.txt
 python scripts/index_product_images.py --limit 500
 ```
 
-### 4. Launch Application
+### 4. Launch backend API
 ```bash
-streamlit run main.py
+uvicorn api_server:app --reload --host 0.0.0.0 --port 8000
 ```
+### 4.1 Launch Next.js frontend (optional)
+```bash
+cd frontend && npm install && npm run dev
+```
+Set `NEXT_PUBLIC_API_URL` (see `frontend/.env.local.example`) to point at the API.
 
 ## Docker Deployment
 
@@ -119,7 +124,8 @@ docker run -p 7860:7860 -e OPENAI_API_KEY="..." -e TAVILY_API_KEY="..." food-age
 
 ## Project Structure
 
-- `main.py`: Streamlit UI and interaction layer.
+- `api_server.py`: FastAPI REST/WebSocket 后端。
+- `frontend/`: Next.js 聊天界面。
 - `graph_logic.py`: LangGraph workflow definition (Routing, RAG, Quality Control).
 - `agent_logic.py`: SQL Agent implementation, Vision processing, and LLM configuration.
 - `data/`: SQLite databases and vector indexing files.

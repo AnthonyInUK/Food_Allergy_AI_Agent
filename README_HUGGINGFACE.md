@@ -15,8 +15,8 @@ An intelligent multimodal assistant powered by GPT-4o-vision and RAG architectur
 
 - **Framework**: LangGraph, LangChain
 - **LLM**: GPT-4o, GPT-4o-vision
-- **Databases**: SQLite (29k+ records), ChromaDB (vector store)
-- **Interface**: Streamlit
+- **Databases**: PostgreSQL (recommended) / bundled data, ChromaDB (vector store)
+- **API**: FastAPI (`api_server.py`); web UI is Next.js in `frontend/` (run separately or point at Space API)
 - **Search**: Tavily AI
 
 ## 🔑 Setup (HuggingFace Spaces)
@@ -34,15 +34,13 @@ TAVILY_API_KEY = "your-tavily-api-key"
 
 ```
 .
-├── main.py              # Streamlit UI
-├── graph_logic.py       # LangGraph workflow
-├── agent_logic.py       # SQL Agent & Vision
-├── requirements.txt     # Dependencies
-├── data/
-│   ├── food_data.db    # SQLite database
-│   └── chroma_db/      # ChromaDB vector store
-└── .streamlit/
-    └── config.toml     # Streamlit configuration
+├── Dockerfile           # HF Space: uvicorn api_server on port 7860
+├── api_server.py      # FastAPI backend
+├── graph_logic.py     # LangGraph workflow
+├── agent_logic.py     # SQL Agent & Vision
+├── requirements.txt
+├── frontend/          # Next.js (optional for Space; often run locally)
+└── data/              # DB / Chroma persist (see .gitignore)
 ```
 
 ## 📊 Performance

@@ -30,9 +30,9 @@
 ## 🚀 验证最新代码
 
 检查 Space 中的关键文件是否包含最新功能：
-- `main.py` 应该包含英文 UI
-- `graph_logic.py` 应该包含快速路径和多跳查询优化
-- `README.md` 应该显示 `colorTo: yellow`
+- `Dockerfile` 的 `CMD` 应为 `uvicorn api_server:app`（端口 7860），**不是** `streamlit run main.py`
+- Space **Settings → SDK** 应为 **Docker**（否则 HF 会按 Streamlit 方式启动旧界面）
+- `api_server.py`、`graph_logic.py` 等与仓库 `main` 一致
 
 ## 📊 查看构建日志
 

@@ -29,5 +29,5 @@ RUN if [ ! -f "data/food_data.db" ]; then echo "WARNING: food_data.db not found"
 # Hugging Face Space 必须监听 7860 端口
 EXPOSE 7860
 
-# 启动命令
-CMD ["python", "-m", "streamlit", "run", "main.py", "--server.port=7860", "--server.address=0.0.0.0"]
+# 启动命令（与本地 Next 前端配合：仅暴露 REST API；HF Space 监听 7860）
+CMD ["uvicorn", "api_server:app", "--host", "0.0.0.0", "--port", "7860"]

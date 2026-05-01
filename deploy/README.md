@@ -52,3 +52,16 @@ docker compose -f docker-compose.prod.yml --env-file .env up -d --build
 ## 5. 仅 HTTP 内网（无域名）
 
 可暂时不用 Caddy，直接暴露 `api:8000` / `frontend:3000` 并自行处理 TLS；或把 `PUBLIC_DOMAIN` 改为内网域名并在 Caddy 使用 `tls internal`（需自行改 `deploy/Caddyfile`，此处不展开）。
+
+## 6. Hugging Face Space 仍显示 Streamlit？
+
+仓库已改为 **`Dockerfile` + `uvicorn api_server:app`（7860）**，不再包含 `main.py` / Streamlit。若 Space 里仍是旧界面，通常是下面之一：
+
+1. **Space 未用 Docker SDK**  
+   打开 Space → **Settings**，确认 **SDK** 为 **Docker**（若选 Streamlit/Gradio，HF 会按旧方式找 `main.py`，与根目录 `Dockerfile` 无关）。
+
+2. **仍是旧镜像**  
+   在 Space **Settings** 里 **Factory reboot** / 重新触发构建，或推一个新 commit 让 CI 再 `git push` 一次 Space，等 **Build** 完成后再打开 **App**。
+
+3. **当前架构**  
+   Space 上跑的是 **仅 API**；聊天 UI 在本机或别处的 **Next.js**（`NEXT_PUBLIC_API_URL` 指向该 Space 的 URL）。根路径 `/` 返回 JSON 说明，交互在 **`/docs`** 或前端里完成。

@@ -1,4 +1,4 @@
-# 生产用 FastAPI 镜像（与根目录 Dockerfile 的 Streamlit/HF 入口分离）
+# 生产用 FastAPI 镜像（根目录 Dockerfile 与 HF Space 亦走 api_server）
 FROM python:3.11-slim
 
 WORKDIR /app

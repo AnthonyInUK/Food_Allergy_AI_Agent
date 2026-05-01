@@ -25,21 +25,17 @@ fi
 
 # Start backend
 echo -e "${BLUE}Starting backend API server...${NC}"
-if [ -f ".venv/bin/activate" ] || [ -f "foodvenv/bin/activate" ]; then
-    echo -e "${YELLOW}Activating Python virtual environment...${NC}"
-    if [ -f ".venv/bin/activate" ]; then
-        source .venv/bin/activate
-    else
-        source foodvenv/bin/activate
-    fi
+if [ -f ".venv/bin/activate" ]; then
+    echo -e "${YELLOW}Activating Python virtual environment (.venv)...${NC}"
+    source .venv/bin/activate
     
     echo -e "${YELLOW}Starting FastAPI server (uvicorn api_server:app)...${NC}"
     uvicorn api_server:app --host 0.0.0.0 --port 8000 &
     BACKEND_PID=$!
     echo -e "${GREEN}✓ Backend started (PID: $BACKEND_PID)${NC}"
 else
-    echo -e "${RED}Error: No virtual environment found${NC}"
-    echo "Please activate your Python virtual environment first"
+    echo -e "${RED}Error: No .venv found${NC}"
+    echo "Create one from the repo root: python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt"
     exit 1
 fi
 
